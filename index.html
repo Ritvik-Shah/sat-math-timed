@@ -9,7 +9,7 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">SAT Math <span class="accent">Timed Practice</span></div>
+  <div class="brand">SAT Math <span class="accent">Practice</span></div>
   <div id="lockdownBadge" class="lockdown-badge hidden">🔒 Lockdown Mode Active</div>
 </header>
 
@@ -17,44 +17,73 @@
 
   <!-- SETUP SCREEN -->
   <section id="setupScreen" class="screen">
-    <h1>Work it out. Beat the clock.</h1>
+    <h1>Work it out. Beat the clock (or don't).</h1>
     <p class="lede">
-      Every question is timed. You must show your work before you can submit an answer —
-      no shortcuts, no pasting, no AI. Answers are checked instantly against real SAT-style math problems.
+      Over 10,000 unique SAT-style math questions, generated on the fly so you never run out.
+      Every question requires you to show your work before submitting — no shortcuts, no AI.
     </p>
 
     <div class="setup-options">
-      <label class="option-row">
-        <input type="checkbox" id="lockdownToggle" checked />
-        <div>
-          <div class="option-title">Lockdown Mode</div>
-          <div class="option-desc">
-            If you switch tabs, minimize the window, or leave fullscreen while a question is active,
-            that question is auto-marked wrong and swapped for a different one.
-          </div>
+      <div class="option-row">
+        <div class="option-full">
+          <div class="option-title">Category</div>
+          <div class="option-desc">Drill one SAT content area, or mix them at the real SAT's weighting.</div>
+          <select id="categorySelect" class="full-select">
+            <option value="MIX">All Categories (SAT-weighted mix)</option>
+            <option value="Algebra">Algebra</option>
+            <option value="Advanced Math">Advanced Math</option>
+            <option value="Problem Solving &amp; Data Analysis">Problem Solving &amp; Data Analysis</option>
+            <option value="Geometry &amp; Trigonometry">Geometry &amp; Trigonometry</option>
+          </select>
         </div>
-      </label>
-
-      <label class="option-row">
-        <input type="checkbox" id="fullscreenToggle" checked />
-        <div>
-          <div class="option-title">Require Fullscreen</div>
-          <div class="option-desc">Enter fullscreen on start (recommended with Lockdown Mode).</div>
-        </div>
-      </label>
+      </div>
 
       <div class="option-row">
-        <div>
-          <div class="option-title">Question Count</div>
-          <div class="option-desc">How many questions in this session.</div>
+        <div class="option-full">
+          <div class="option-title">Session Length</div>
+          <div class="option-desc">A full practice test mirrors the digital SAT Math section (44 questions).</div>
+          <select id="questionCount" class="full-select">
+            <option value="5">5 questions</option>
+            <option value="10" selected>10 questions</option>
+            <option value="15">15 questions</option>
+            <option value="20">20 questions</option>
+            <option value="44">Full Practice Test (44 questions)</option>
+          </select>
         </div>
-        <select id="questionCount">
-          <option value="5">5</option>
-          <option value="10" selected>10</option>
-          <option value="15">15</option>
-          <option value="20">All (20)</option>
-        </select>
       </div>
+
+      <div class="option-row">
+        <div class="option-full">
+          <div class="option-title">Timing</div>
+          <div class="option-desc">Timed mode gives each question 65–105 seconds based on difficulty. Untimed removes the clock entirely.</div>
+          <div class="radio-group">
+            <label class="radio-pill"><input type="radio" name="timedMode" value="timed" checked /> Timed</label>
+            <label class="radio-pill"><input type="radio" name="timedMode" value="untimed" /> Untimed</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="option-row locked-row">
+        <div>
+          <div class="option-title">🔒 Lockdown Mode <span class="always-on">Always On</span></div>
+          <div class="option-desc">
+            Switching tabs, losing window focus, or exiting fullscreen while a question is active marks it wrong
+            and swaps in a different question. This can't be turned off.
+          </div>
+        </div>
+      </div>
+
+      <div class="option-row locked-row">
+        <div>
+          <div class="option-title">🖥️ Fullscreen <span class="always-on">Required</span></div>
+          <div class="option-desc">The session starts in fullscreen to support Lockdown Mode.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-row">
+      <span id="historyCount">0 questions attempted so far</span>
+      <button id="resetHistoryBtn" class="btn-link">Reset practice history</button>
     </div>
 
     <button id="startBtn" class="btn-primary">Start Session</button>
@@ -63,8 +92,11 @@
   <!-- QUESTION SCREEN -->
   <section id="quizScreen" class="screen hidden">
     <div class="quiz-head">
-      <div class="progress">Question <span id="qIndex">1</span> / <span id="qTotal">10</span></div>
-      <div class="timer-wrap">
+      <div class="progress">
+        <div>Question <span id="qIndex">1</span> / <span id="qTotal">10</span></div>
+        <div id="qSubcategory" class="subcategory"></div>
+      </div>
+      <div id="timerWrap" class="timer-wrap">
         <div id="timerBar" class="timer-bar"></div>
         <div id="timerText" class="timer-text">1:30</div>
       </div>
@@ -95,6 +127,11 @@
     <h1>Session Complete</h1>
     <div id="scoreSummary" class="score-summary"></div>
     <div id="violationsSummary" class="violations-summary hidden"></div>
+
+    <h3 class="section-heading">Breakdown by Category</h3>
+    <div id="categoryBreakdown" class="category-breakdown"></div>
+
+    <h3 class="section-heading">Question Review</h3>
     <div id="reviewList" class="review-list"></div>
     <button id="restartBtn" class="btn-primary">Start New Session</button>
   </section>
@@ -103,8 +140,8 @@
   <div id="warningOverlay" class="warning-overlay hidden">
     <div class="warning-box">
       <div class="warning-icon">⚠️</div>
-      <h2>Tab switch detected</h2>
-      <p>Your active question was marked <strong>wrong</strong> and replaced with a new one.</p>
+      <h2>Lockdown violation detected</h2>
+      <p id="warningReason">Your active question was marked <strong>wrong</strong> and replaced with a new one.</p>
       <button id="warningDismiss" class="btn-primary">Continue</button>
     </div>
   </div>
@@ -112,10 +149,10 @@
 </main>
 
 <footer class="foot">
-  Built for focused practice. No accounts, no tracking — everything runs in your browser.
+  Built for focused practice. No accounts, no server — questions are generated and your history is cached in your own browser.
 </footer>
 
-<script src="questions.js"></script>
+<script src="generator.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

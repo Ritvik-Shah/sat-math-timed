@@ -1,19 +1,26 @@
 (function () {
   "use strict";
 
+  const BANK = window.SAT_MATH_BANK;
+  const SEEN_KEY = "satmath_seen_v2";
+  const MIN_WORK_CHARS = 20;
+
   // ---------- DOM ----------
   const setupScreen = document.getElementById("setupScreen");
   const quizScreen = document.getElementById("quizScreen");
   const resultsScreen = document.getElementById("resultsScreen");
   const lockdownBadge = document.getElementById("lockdownBadge");
 
-  const lockdownToggle = document.getElementById("lockdownToggle");
-  const fullscreenToggle = document.getElementById("fullscreenToggle");
+  const categorySelect = document.getElementById("categorySelect");
   const questionCountSelect = document.getElementById("questionCount");
   const startBtn = document.getElementById("startBtn");
+  const historyCountEl = document.getElementById("historyCount");
+  const resetHistoryBtn = document.getElementById("resetHistoryBtn");
 
   const qIndexEl = document.getElementById("qIndex");
   const qTotalEl = document.getElementById("qTotal");
+  const qSubcategoryEl = document.getElementById("qSubcategory");
+  const timerWrap = document.getElementById("timerWrap");
   const timerBar = document.getElementById("timerBar");
   const timerText = document.getElementById("timerText");
   const qCategoryEl = document.getElementById("qCategory");
@@ -26,69 +33,99 @@
 
   const scoreSummaryEl = document.getElementById("scoreSummary");
   const violationsSummaryEl = document.getElementById("violationsSummary");
+  const categoryBreakdownEl = document.getElementById("categoryBreakdown");
   const reviewListEl = document.getElementById("reviewList");
   const restartBtn = document.getElementById("restartBtn");
 
   const warningOverlay = document.getElementById("warningOverlay");
+  const warningReason = document.getElementById("warningReason");
   const warningDismiss = document.getElementById("warningDismiss");
 
-  const MIN_WORK_CHARS = 20;
+  // ---------- Repeat-avoidance cache (localStorage) ----------
+  let seenSet = loadSeenSet();
+
+  function loadSeenSet() {
+    try {
+      const raw = localStorage.getItem(SEEN_KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function persistSeenSet() {
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify([...seenSet]));
+    } catch (e) {
+      /* localStorage unavailable (e.g. private mode) — cache just won't persist */
+    }
+  }
+  function updateHistoryCount() {
+    historyCountEl.textContent = `${seenSet.size} question${seenSet.size === 1 ? "" : "s"} attempted so far`;
+  }
+  updateHistoryCount();
+
+  resetHistoryBtn.addEventListener("click", () => {
+    if (!confirm("Clear your local practice history? You may see repeat questions again after this.")) return;
+    seenSet = new Set();
+    persistSeenSet();
+    updateHistoryCount();
+  });
+
+  // Generates a question from the bank, avoiding anything already in the seen-cache.
+  // If a template's reachable parameter space has been exhausted, its cache entries
+  // are cleared so the pool of values for that template effectively renews.
+  function generateUniqueQuestion(categoryFilter) {
+    let q, tries = 0;
+    do {
+      q = BANK.generateQuestion(categoryFilter);
+      tries++;
+    } while (seenSet.has(q.signature) && tries < 60);
+
+    if (seenSet.has(q.signature)) {
+      const prefix = q.signature.split("|")[0] + "|";
+      [...seenSet].forEach((s) => {
+        if (s.startsWith(prefix)) seenSet.delete(s);
+      });
+    }
+    seenSet.add(q.signature);
+    persistSeenSet();
+    updateHistoryCount();
+    return q;
+  }
 
   // ---------- State ----------
-  let settings = { lockdown: true, fullscreen: true, count: 10 };
+  let settings = { category: "MIX", count: 10, timed: true };
   let sessionQuestions = [];
-  let reservePool = [];
   let currentIndex = 0;
-  let results = []; // { question, correct, timedOut, flagged, workText, selectedAnswer }
+  let results = [];
   let selectedOptionIndex = null;
   let timerHandle = null;
   let timerEndAt = 0;
   let timerTotal = 0;
-  let questionResolved = false; // true once answered/timed-out/flagged, guards double-handling
-  let quizActive = false; // true while the quiz screen is live (between start and results)
-  let pendingSwap = false; // true while warning overlay is showing, waiting for dismiss
-
-  // ---------- Helpers ----------
-  function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function formatTime(sec) {
-    const m = Math.floor(sec / 60);
-    const s = Math.max(0, Math.floor(sec % 60));
-    return `${m}:${String(s).padStart(2, "0")}`;
-  }
+  let questionResolved = false;
+  let quizActive = false;
+  let pendingSwap = false;
 
   function show(el) { el.classList.remove("hidden"); }
   function hide(el) { el.classList.add("hidden"); }
 
   // ---------- Setup screen ----------
   startBtn.addEventListener("click", async () => {
-    settings.lockdown = lockdownToggle.checked;
-    settings.fullscreen = fullscreenToggle.checked;
+    settings.category = categorySelect.value;
     settings.count = parseInt(questionCountSelect.value, 10);
+    settings.timed = document.querySelector('input[name="timedMode"]:checked').value === "timed";
 
-    const pool = shuffle(QUESTIONS);
-    sessionQuestions = pool.slice(0, settings.count);
-    reservePool = pool.slice(settings.count);
+    sessionQuestions = Array.from({ length: settings.count }, () => generateUniqueQuestion(settings.category));
     currentIndex = 0;
     results = [];
 
-    if (settings.fullscreen) {
-      try {
-        await document.documentElement.requestFullscreen();
-      } catch (e) {
-        // fullscreen can be denied/unsupported; continue anyway
-      }
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (e) {
+      // fullscreen can be denied/unsupported by the browser; lockdown still runs on focus/visibility events
     }
 
-    lockdownBadge.classList.toggle("hidden", !settings.lockdown);
-
+    show(lockdownBadge);
     hide(setupScreen);
     show(quizScreen);
     quizActive = true;
@@ -104,6 +141,7 @@
 
     qIndexEl.textContent = String(index + 1);
     qCategoryEl.textContent = q.category;
+    qSubcategoryEl.textContent = q.subcategory || "";
     qPromptEl.textContent = q.prompt;
     workArea.value = "";
     workArea.disabled = false;
@@ -139,7 +177,13 @@
       qOptionsEl.appendChild(input);
     }
 
-    startTimer(q.timeLimit);
+    if (settings.timed) {
+      show(timerWrap);
+      startTimer(q.timeLimit);
+    } else {
+      hide(timerWrap);
+      stopTimer();
+    }
   }
 
   function updateWorkHint() {
@@ -197,7 +241,11 @@
       if (!questionResolved) handleTimeout();
     }
   }
-
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.max(0, Math.floor(sec % 60));
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
   function stopTimer() {
     clearInterval(timerHandle);
   }
@@ -222,9 +270,7 @@
   }
 
   function handleTimeout() {
-    const q = sessionQuestions[currentIndex];
-    let userAnswerDisplay = "(no answer — time expired)";
-    resolveQuestion({ correct: false, timedOut: true, flagged: false, userAnswerDisplay });
+    resolveQuestion({ correct: false, timedOut: true, flagged: false, userAnswerDisplay: "(no answer — time expired)" });
   }
 
   function resolveQuestion({ correct, timedOut, flagged, userAnswerDisplay }) {
@@ -256,15 +302,18 @@
 
   function renderFeedback({ correct, timedOut, flagged, q }) {
     feedbackEl.className = "feedback " + (correct ? "correct" : "incorrect");
-    const correctAnswerText =
-      q.type === "mc" ? `${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}` : q.answer;
+    const correctAnswerText = q.type === "mc" ? `${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}` : q.answer;
 
     let headline;
     if (flagged) headline = "Marked wrong — lockdown violation.";
     else if (timedOut) headline = "Time's up — marked wrong.";
     else headline = correct ? "Correct!" : "Not quite.";
 
-    feedbackEl.innerHTML = `<strong>${headline}</strong><br/>Correct answer: ${correctAnswerText}`;
+    feedbackEl.innerHTML = `
+      <strong>${headline}</strong><br/>
+      Correct answer: ${correctAnswerText}
+      <div class="explanation">${escapeHtml(q.explanation)}</div>
+    `;
     show(feedbackEl);
   }
 
@@ -277,17 +326,15 @@
     }
   }
 
-  // ---------- Lockdown mode ----------
+  // ---------- Lockdown mode (always on) ----------
   function isQuizLive() {
     return quizActive && !resultsVisible() && !questionResolved && !pendingSwap;
   }
-
   function resultsVisible() {
     return !resultsScreen.classList.contains("hidden");
   }
 
   function triggerLockdownViolation(reason) {
-    if (!settings.lockdown) return;
     if (!isQuizLive()) return;
 
     pendingSwap = true;
@@ -305,24 +352,15 @@
     });
 
     lockControls();
+    warningReason.innerHTML = `Your active question was marked <strong>wrong</strong> (${reason}) and replaced with a new one.`;
     show(warningOverlay);
   }
 
   warningDismiss.addEventListener("click", () => {
     hide(warningOverlay);
     pendingSwap = false;
-
-    // Swap the flagged question out for a fresh one from the reserve pool, if available.
-    if (reservePool.length > 0) {
-      const next = reservePool.shift();
-      sessionQuestions[currentIndex] = next;
-      loadQuestion(currentIndex);
-    } else if (currentIndex < sessionQuestions.length - 1) {
-      currentIndex++;
-      loadQuestion(currentIndex);
-    } else {
-      finishSession();
-    }
+    sessionQuestions[currentIndex] = generateUniqueQuestion(settings.category);
+    loadQuestion(currentIndex);
   });
 
   document.addEventListener("visibilitychange", () => {
@@ -330,9 +368,6 @@
   });
 
   window.addEventListener("blur", () => {
-    // Debounce: only fires as a violation if the page is still nominally "visible"
-    // per visibilitychange (covers alt-tab / switching apps on some platforms)
-    // but skip if we already handled it via visibilitychange.
     setTimeout(() => {
       if (document.hidden) return; // visibilitychange handler already caught it
       if (!document.hasFocus()) triggerLockdownViolation("window lost focus");
@@ -340,7 +375,7 @@
   });
 
   document.addEventListener("fullscreenchange", () => {
-    if (settings.fullscreen && settings.lockdown && !document.fullscreenElement && quizActive) {
+    if (!document.fullscreenElement && quizActive) {
       triggerLockdownViolation("exited fullscreen");
     }
   });
@@ -353,6 +388,7 @@
     }
     hide(quizScreen);
     show(resultsScreen);
+    hide(lockdownBadge);
 
     const correctCount = results.filter((r) => r.correct).length;
     const flaggedCount = results.filter((r) => r.flagged).length;
@@ -361,12 +397,42 @@
     scoreSummaryEl.innerHTML = `${correctCount} / ${total} <span style="font-size:16px;color:var(--text-dim);font-weight:500;"> correct</span>`;
 
     if (flaggedCount > 0) {
-      violationsSummaryEl.textContent = `⚠️ ${flaggedCount} question${flaggedCount > 1 ? "s" : ""} auto-marked wrong due to lockdown violations (tab switch / focus loss).`;
+      violationsSummaryEl.textContent = `⚠️ ${flaggedCount} question${flaggedCount > 1 ? "s" : ""} auto-marked wrong due to lockdown violations (tab switch / focus loss / exited fullscreen).`;
       show(violationsSummaryEl);
     } else {
       hide(violationsSummaryEl);
     }
 
+    renderCategoryBreakdown();
+    renderReviewList();
+  }
+
+  function renderCategoryBreakdown() {
+    const byCategory = {};
+    results.forEach((r) => {
+      const cat = r.question.category;
+      if (!byCategory[cat]) byCategory[cat] = { correct: 0, total: 0 };
+      byCategory[cat].total++;
+      if (r.correct) byCategory[cat].correct++;
+    });
+
+    categoryBreakdownEl.innerHTML = "";
+    Object.entries(byCategory).forEach(([cat, stat]) => {
+      const pct = Math.round((stat.correct / stat.total) * 100);
+      const row = document.createElement("div");
+      row.className = "cat-row";
+      row.innerHTML = `
+        <div class="cat-row-head">
+          <span>${cat}</span>
+          <span>${stat.correct} / ${stat.total} (${pct}%)</span>
+        </div>
+        <div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+      `;
+      categoryBreakdownEl.appendChild(row);
+    });
+  }
+
+  function renderReviewList() {
     reviewListEl.innerHTML = "";
     results.forEach((r, i) => {
       const div = document.createElement("div");
@@ -379,12 +445,13 @@
           : r.question.answer;
 
       div.innerHTML = `
-        <div class="review-q">Q${i + 1}: ${r.question.prompt}</div>
+        <div class="review-q">Q${i + 1} · ${r.question.category}${r.question.subcategory ? " · " + r.question.subcategory : ""}: ${escapeHtml(r.question.prompt)}</div>
         <div class="review-meta">
           <span class="review-tag ${status}">${tagText}</span>
-          Your answer: ${r.userAnswerDisplay || "—"} &nbsp;|&nbsp; Correct answer: ${correctAnswerText}
+          Your answer: ${escapeHtml(r.userAnswerDisplay || "—")} &nbsp;|&nbsp; Correct answer: ${escapeHtml(String(correctAnswerText))}
         </div>
         ${r.workText ? `<div class="review-meta" style="margin-top:6px;">Work shown: "${escapeHtml(r.workText)}"</div>` : ""}
+        ${!r.correct ? `<div class="review-explanation"><strong>Why:</strong> ${escapeHtml(r.question.explanation)}</div>` : ""}
       `;
       reviewListEl.appendChild(div);
     });
@@ -392,13 +459,12 @@
 
   function escapeHtml(str) {
     const div = document.createElement("div");
-    div.textContent = str;
+    div.textContent = String(str);
     return div.innerHTML;
   }
 
   restartBtn.addEventListener("click", () => {
     hide(resultsScreen);
     show(setupScreen);
-    lockdownBadge.classList.add("hidden");
   });
 })();

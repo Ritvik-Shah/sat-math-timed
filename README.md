@@ -1,15 +1,47 @@
-# SAT Math — Timed Practice
+# SAT Math — Practice
 
 A no-build, static SAT-style math practice site designed to stop students from just pasting
 questions into AI:
 
-- **Timed questions** — each question has a countdown (75–105s depending on difficulty). Time
-  runs out, it's marked wrong.
+- **10,000+ unique questions, generated on the fly** — see [Question generation](#question-generation)
+  below for how this works and why it's more reliable than a hand-written question bank at this scale.
+- **Timed or untimed sessions** — timed mode gives each question 65–105 seconds based on difficulty;
+  untimed removes the clock. Either way, Lockdown Mode and fullscreen stay on.
 - **Work required** — students must type a minimum amount of real work/reasoning in a text box
   before the submit button unlocks.
-- **Lockdown Mode** — if the student switches tabs, loses window focus, or exits fullscreen while
-  a question is active, that question is immediately marked wrong and swapped out for a different
-  question from the bank.
+- **Lockdown Mode (always on)** — if the student switches tabs, loses window focus, or exits
+  fullscreen while a question is active, that question is immediately marked wrong and swapped
+  out for a freshly generated one.
+- **Category drilling** — practice a single SAT content domain (Algebra, Advanced Math,
+  Problem Solving & Data Analysis, Geometry & Trigonometry), or mix all four at the real digital
+  SAT's approximate weighting (35% / 35% / 15% / 15%).
+- **Session lengths** — 5, 10, 15, 20, or a Full Practice Test (44 questions, matching the digital
+  SAT Math section).
+- **Score breakdown with explanations** — after a session, see a per-category right/wrong
+  breakdown plus a full review of every question, with a worked "why" explanation for anything
+  missed.
+- **No-repeat cache** — each attempted question's exact parameters are cached in the browser's
+  `localStorage` so you won't see the same question twice. Once a template's easily-reachable
+  variations are exhausted, its cache resets and starts producing fresh values again. Clear it
+  anytime from the "Reset practice history" link on the start screen.
+
+## Question generation
+
+Rather than hand-writing thousands of static questions (error-prone at that scale — a single typo
+in an answer key silently teaches the wrong thing), [generator.js](generator.js) defines ~40
+parametrized templates across the four SAT Math content domains. Each template:
+
+1. Picks random parameters (numbers, points, coefficients — whatever the problem needs).
+2. Builds the question prompt from those exact numbers.
+3. **Computes** the correct answer from the same numbers (never hand-typed).
+4. Builds a step-by-step explanation from the same numbers.
+
+With dozens of independent random parameters per template across 40 templates, the reachable
+space of distinct question instances is in the hundreds of thousands — comfortably past 10,000 —
+and every single one is guaranteed mathematically correct because the answer is derived, not
+authored. This was verified with a fuzz test that generated 25,000+ questions across every
+template and checked structural and numeric correctness (see the template list in
+[generator.js](generator.js) for exactly what's covered).
 
 ## Running locally
 
@@ -26,21 +58,14 @@ npx serve .
 3. Under "Build and deployment", set **Source** to `Deploy from a branch`, branch `main`, folder `/ (root)`.
 4. Save — the site will be live at `https://<username>.github.io/<repo-name>/`.
 
-## Adding questions
+## Adding a new question template
 
-Edit [questions.js](questions.js). Each question is:
-
-```js
-{
-  id: "unique-id",
-  category: "Algebra",
-  type: "mc" | "grid",       // multiple choice or numeric free-response
-  prompt: "...",
-  options: ["...", "...", "...", "..."], // mc only
-  answer: 0,                  // mc: option index; grid: string of the numeric answer
-  timeLimit: 90,               // seconds
-}
-```
+Templates live in [generator.js](generator.js), registered with `registerMC(...)` (multiple
+choice) or `registerGrid(...)` (numeric free-response). Each template's `build()` function returns
+the prompt, the computed correct answer (plus plausible wrong options for MC), a step-by-step
+explanation, and the raw `params` used (for the no-repeat signature). Follow the existing
+templates as a pattern — pick target values first, then derive the "given" numbers from them, so
+answers stay clean and explanations stay simple.
 
 ## Notes on Lockdown Mode
 
