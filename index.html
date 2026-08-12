@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAT Math — Timed Practice</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">SAT Math <span class="accent">Timed Practice</span></div>
+  <div id="lockdownBadge" class="lockdown-badge hidden">🔒 Lockdown Mode Active</div>
+</header>
+
+<main id="app">
+
+  <!-- SETUP SCREEN -->
+  <section id="setupScreen" class="screen">
+    <h1>Work it out. Beat the clock.</h1>
+    <p class="lede">
+      Every question is timed. You must show your work before you can submit an answer —
+      no shortcuts, no pasting, no AI. Answers are checked instantly against real SAT-style math problems.
+    </p>
+
+    <div class="setup-options">
+      <label class="option-row">
+        <input type="checkbox" id="lockdownToggle" checked />
+        <div>
+          <div class="option-title">Lockdown Mode</div>
+          <div class="option-desc">
+            If you switch tabs, minimize the window, or leave fullscreen while a question is active,
+            that question is auto-marked wrong and swapped for a different one.
+          </div>
+        </div>
+      </label>
+
+      <label class="option-row">
+        <input type="checkbox" id="fullscreenToggle" checked />
+        <div>
+          <div class="option-title">Require Fullscreen</div>
+          <div class="option-desc">Enter fullscreen on start (recommended with Lockdown Mode).</div>
+        </div>
+      </label>
+
+      <div class="option-row">
+        <div>
+          <div class="option-title">Question Count</div>
+          <div class="option-desc">How many questions in this session.</div>
+        </div>
+        <select id="questionCount">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="20">All (20)</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="startBtn" class="btn-primary">Start Session</button>
+  </section>
+
+  <!-- QUESTION SCREEN -->
+  <section id="quizScreen" class="screen hidden">
+    <div class="quiz-head">
+      <div class="progress">Question <span id="qIndex">1</span> / <span id="qTotal">10</span></div>
+      <div class="timer-wrap">
+        <div id="timerBar" class="timer-bar"></div>
+        <div id="timerText" class="timer-text">1:30</div>
+      </div>
+    </div>
+
+    <div class="category-badge" id="qCategory">Algebra</div>
+    <h2 id="qPrompt" class="q-prompt">Prompt goes here</h2>
+
+    <div id="qOptions" class="options"></div>
+
+    <div class="work-block">
+      <label for="workArea" class="work-label">
+        Show your work <span class="required-mark">(required — explain your steps)</span>
+      </label>
+      <textarea id="workArea" placeholder="Write out how you solved this problem, step by step..." rows="5"></textarea>
+      <div id="workHint" class="work-hint">Write at least 20 characters of real work to unlock submit.</div>
+    </div>
+
+    <div class="quiz-actions">
+      <button id="submitBtn" class="btn-primary" disabled>Submit Answer</button>
+    </div>
+
+    <div id="feedback" class="feedback hidden"></div>
+  </section>
+
+  <!-- RESULTS SCREEN -->
+  <section id="resultsScreen" class="screen hidden">
+    <h1>Session Complete</h1>
+    <div id="scoreSummary" class="score-summary"></div>
+    <div id="violationsSummary" class="violations-summary hidden"></div>
+    <div id="reviewList" class="review-list"></div>
+    <button id="restartBtn" class="btn-primary">Start New Session</button>
+  </section>
+
+  <!-- TAB-SWITCH WARNING OVERLAY -->
+  <div id="warningOverlay" class="warning-overlay hidden">
+    <div class="warning-box">
+      <div class="warning-icon">⚠️</div>
+      <h2>Tab switch detected</h2>
+      <p>Your active question was marked <strong>wrong</strong> and replaced with a new one.</p>
+      <button id="warningDismiss" class="btn-primary">Continue</button>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  Built for focused practice. No accounts, no tracking — everything runs in your browser.
+</footer>
+
+<script src="questions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
