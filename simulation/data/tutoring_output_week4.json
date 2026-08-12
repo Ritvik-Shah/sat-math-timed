@@ -1,0 +1,25 @@
+{
+  "explanations": [
+    {
+      "index": 4,
+      "category": "Algebra",
+      "subcategory": "Linear functions",
+      "explanation": "You did a good job setting up the problem.  \nHere’s what worked and where the sign slipped:\n\n- You wrote **f(-2) = -1*(-2) - 4**. That’s the correct substitution step.  \n- The mistake comes when you evaluate \\(-1*(-2)\\).\n  - Two negatives multiplied together give a **positive** result.  \n  - So \\(-1*(-2) = 2\\), not \\(-2\\).  \n\nNow do the arithmetic with the correct sign:\n\nf(-2)  \n= -(-2) - 4  \n= 2 - 4  \n= -2\n\nSo the answer is **-2**. Think of the “-1” in the function as a “-” sign, and remember that a negative times a negative is a positive. Keep that rule in mind when you plug in any value. Good work on your process—just correct that sign, and you’ll get the right answer every time."
+    },
+    {
+      "index": 8,
+      "category": "Advanced Math",
+      "subcategory": "Equivalent expressions",
+      "explanation": "You did the big first step correctly: you removed both sets of parentheses and turned the minus sign in front of the second group into “plus signs” for each of the terms inside.  \nWhat happened next is a little slip when you added the x terms.\n\nWrite the steps again in one clean line:\n\n(-3x + 6) – (‑7x² – 2x – 4)  \n= -3x + 6 + 7x² + 2x + 4    (because – (‑something) = +something)\n\nNow combine like terms:\n\n- The x² terms: 7x² (there’s only one, so keep it).\n- The x terms: -3x + 2x = -1x   (–3 + 2 = –1)\n- The constant terms: 6 + 4 = 10\n\nSo the whole expression becomes:  \n\n7x² - x + 10\n\nYour work was almost there; you just added –3x and –2x instead of –3x and +2x.  \nTo avoid that in the future, remember: every time you see “– ( … )” you flip the sign on every term inside the parentheses. Once you do that, the rest is just addition. Keep practicing, and you’ll catch those little sign flips in no time!"
+    },
+    {
+      "index": 13,
+      "category": "Advanced Math",
+      "subcategory": "Nonlinear functions",
+      "explanation": "Sure! Let’s look at your work and see where the mistake happened, then go through the right calculation step by step.\n\nIn your work you wrote  \nf(5) = 2(5^2) – 8(5) – 4  \nThen you said you wrote 5^2 as 10 by accident.  \n5^2 really means 5 * 5, which is 25, not 10.  \nThat single error changes every term that follows.\n\n**Correct calculation**\n\n1. Substitute x = 5 into the function.  \nf(5) = 2 * (5^2) – 8 * 5 – 4\n\n2. Compute the power first.  \n5^2 = 5 * 5 = 25\n\n3. Multiply by 2.  \n2 * 25 = 50\n\n4. Multiply –8 by 5.  \n–8 * 5 = –40\n\n5. Now combine all parts:  \n50 + (–40) + (–4)\n\n6. Add the numbers:  \n50 – 40 = 10  \n10 – 4 = 6\n\nSo f(5) = 6.\n\nThe key steps were correctly evaluating 5^2 and keeping the signs straight. If you keep that in mind, the rest follows naturally. Let me know if you’d like to try another example!"
+    }
+  ],
+  "studyPlan": "**1. Substituting values into linear functions**  \nYou missed the problem that asked for f(‑2) given f(x) = ‑1x ‑ 4. The key step is to replace x directly with the number and do the arithmetic.  \n*Action:* Find ten more linear functions (you can use a worksheet or a quick online quiz) and write down the function and the value you obtain after substituting x. Check each answer by plugging the number back in.\n\n**2. Using the distributive property to simplify expressions**  \nThe expression (-3x + 6) – (-7x² – 2x – 4) turned into 7x² – x + 10, but your answer had the wrong coefficient of x. This is a sign that you need to be extra careful when subtracting a negative.  \n*Action:* Take a page of algebra drills that involve adding or subtracting polynomials with negative signs. After each problem, write the result in standard form and double‑check by adding the terms back together.\n\n**3. Evaluating quadratic functions**  \nYou got f(5) wrong for f(x) = 2x² – 8x – 4. Quadratics require you to square the number first, then multiply and add the other terms.  \n*Action:* Choose five different quadratic functions and compute f(n) for two integer values each time (e.g., n = 2 and n = 5). Record the steps in a notebook: first square, then multiply, then add/subtract. Review where a sign or a multiplication went wrong.\n\nDoing these focused drills each week should tighten the skills you need for the SAT math section. Happy studying!",
+  "missedCount": 3,
+  "sampledCount": 3
+}

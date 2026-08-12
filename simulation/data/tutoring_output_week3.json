@@ -1,0 +1,31 @@
+{
+  "explanations": [
+    {
+      "index": 1,
+      "category": "Advanced Math",
+      "subcategory": "Nonlinear functions",
+      "explanation": "You did the first step correctly:  \ng(0)=9  \n\nBecause the rule is “g(x)=g(x‑1) × 3 for all integers x>0,” each time you increase x by 1 you must multiply the previous value by 3.  \n\n- Compute g(1):  \n  g(1)=g(0) × 3 = 9 × 3 = 27  \n\n- Compute g(2):  \n  g(2)=g(1) × 3 = 27 × 3 = 81  \n\nSo you need to apply the rule twice, not just once. Think of it like moving along a number line: start at g(0)=9, step to g(1) by multiplying by 3, then step again to g(2) by multiplying by 3 again. The final answer is 81."
+    },
+    {
+      "index": 5,
+      "category": "Geometry & Trigonometry",
+      "subcategory": "Right triangles & trigonometry",
+      "explanation": "Hey, great that you’re digging into the problem—let’s see where the mix‑up happened and how to get the right answer.\n\n**What you did right**\n\n- You drew the right triangle and noted the three side lengths: 9, 40, and 41.\n- You remembered that the formula for sine uses the opposite side over the hypotenuse (the classic SOH‑CAH‑TOA clue).\n\n**Where the reasoning slipped**\n\n- You thought “opposite” was the side *next to* the angle θ. In a right triangle, the side *next to* θ is actually the **adjacent** side. The side *opposite* θ is the one that doesn’t touch it. In this triangle, that’s the side of length 9.\n\n**Correct step‑by‑step**\n\n1. Identify the side that the angle θ is opposite. Look at the picture: the 9‑unit side doesn’t touch the angle, so it is opposite.\n2. Apply the sine ratio: \n   \n   sin θ = opposite / hypotenuse\n   = 9 / 41\n\n3. Check quickly: the other ratio, cos θ = adjacent / hypotenuse = 40 / 41, is the cosine, not the sine.\n\nSo the sine of θ is 9/41, not 40/41. You were on the right track—just swap “opposite” and “adjacent” in your mental picture. Keep practicing the SOH‑CAH‑TOA acronym and you’ll nail it every time!"
+    },
+    {
+      "index": 6,
+      "category": "Algebra",
+      "subcategory": "Systems of linear equations",
+      "explanation": "Let’s look at what you did and where the sign got flipped.\n\n**Your work**\n\n1. You wrote 3x – 5(–1) = 5.  \n2. Then you said “–5 times –1 is –5” and replaced 5(–1) with –5.  \n3. That gave 3x – 5 = 5.  \n4. You solved to get x = 10/3.\n\n**What actually happens**\n\nWhen you multiply a negative number by another negative number, the result is positive.  \nSo 5(–1) = –5. But because it’s inside a subtraction, it becomes 3x – (–5).  \nSubtracting a negative is the same as adding its positive: 3x + 5.\n\nLet’s redo the steps with the correct sign:\n\n3x – 5(–1) = 5  \n3x + 5 = 5       (1)\n\nSubtract 5 from both sides of (1):\n\n3x = 0\n\nFinally, divide by 3:\n\nx = 0\n\n**Why the sign mattered**\n\nIf you wrote 3x – 5 = 5, you effectively omitted the plus 5 that should have appeared. That extra 5 changed the whole equation, leading to a different solution.\n\nA quick mental check:  \n- If y = –1, then 5y = 5(–1) = –5.  \n- The equation says 3x – (–5), which is “3x plus 5,” so the 5 on the left cancels the 5 on the right, forcing x to be 0.\n\nNow you can see the correct value is 0, not 10/3."
+    },
+    {
+      "index": 17,
+      "category": "Advanced Math",
+      "subcategory": "Nonlinear functions",
+      "explanation": "Let’s look at what happened step by step.\n\n**1. What you did right**  \nYou correctly squared the ‑4.  \n(-4)² = 16.  \nThen you multiplied by the coefficient –3:  \n-3 * 16 = -48.  \nThat part is correct.\n\n**2. Where the error occurred**  \nYou wrote the next term as –8 times –4, which you then treated as –32.  \nRemember that a minus times a minus gives a plus.  \nSo –8 * –4 = +32, not –32.  \nThat sign change is the only thing that turns the whole result into the right answer.\n\n**3. Putting it all together**  \nNow compute the three parts separately:\n\n-48  (from –3·16)  \n+32  (from –8·–4)  \n–13  (the constant term)\n\nAdd them in order:\n\n-48 + 32 = –16  \n–16 – 13 = –29\n\nSo f(‑4) = –29.\n\n**Takeaway**  \nWhenever you multiply two negative numbers, think “minus times minus equals plus.” That simple rule fixes the sign mistake and gives you the correct result."
+    }
+  ],
+  "studyPlan": "Here’s a short, focused study plan that targets the mistakes you made. Work on these three concepts first, then move on to the others you scored well in.\n\n- **Exponential recurrence + integer iteration**  \n  The function g satisfies g(x)=g(x‑1)×3.  To practice, write a small table of g(0), g(1), …, g(5).  Check each step: Multiply the previous value by 3.  Do this for several different initial values (e.g., g(0)=2, g(0)=5) until you feel comfortable with “how many times to multiply.”  \n  *Actionable practice:* Create a two‑column worksheet: left column lists the integer input x, right column asks you to compute g(x).  Start with the given g(0)=9 and then try a different g(0).  Compare your answers against a quick calculator.  \n\n- **Trigonometric ratios in right triangles**  \n  In a right triangle, sin(θ)=opposite/hypotenuse, cos(θ)=adjacent/hypotenuse, tan(θ)=opposite/adjacent.  Practice with Pythagorean triples: 9‑40‑41, 3‑4‑5, 5‑12‑13.  For each, write the three ratios.  \n  *Actionable practice:* Pick a triangle you don’t already know the ratios for.  Draw it, label the sides, and write the three ratios.  Then check by plugging numbers into sin, cos, tan.  \n\n- **Solving simple linear systems**  \n  When given an equation like 3x-5y=5 and a value for y, substitute immediately.  For non‑substitution practice, isolate x or y on one side and solve step by step.  \n  *Actionable practice:* Take 10 equations of the form ax+by=c with one variable fixed.  Write the other variable’s value first, then solve for the unknown.  Verify by back‑substitution.  \n\nUse a timer to simulate the SAT’s time pressure, and review your errors afterward.  After you can solve all of these correctly, add more practice problems to build speed and confidence.",
+  "missedCount": 4,
+  "sampledCount": 4
+}
