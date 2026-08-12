@@ -29,6 +29,7 @@
   const qOptionsEl = document.getElementById("qOptions");
   const workArea = document.getElementById("workArea");
   const workHint = document.getElementById("workHint");
+  const requiredMark = document.getElementById("requiredMark");
   const submitBtn = document.getElementById("submitBtn");
   const feedbackEl = document.getElementById("feedback");
 
@@ -134,6 +135,10 @@
     quizActive = true;
     qTotalEl.textContent = String(settings.count);
     loadQuestion(currentIndex);
+
+    // Fire-and-forget: start loading the AI model now so it's hopefully
+    // already warm by the time the student reaches the results screen.
+    TUTOR.warmup();
   });
 
   // ---------- Question rendering ----------
@@ -155,6 +160,7 @@
     }
     workArea.value = "";
     workArea.disabled = false;
+    requiredMark.textContent = settings.timed ? "(optional)" : "(required — explain your steps)";
     updateWorkHint();
     hide(feedbackEl);
     feedbackEl.className = "feedback hidden";
@@ -198,7 +204,10 @@
 
   function updateWorkHint() {
     const len = workArea.value.trim().length;
-    if (len >= MIN_WORK_CHARS) {
+    if (settings.timed) {
+      workHint.textContent = "Optional in timed mode — jot down your reasoning if it helps.";
+      workHint.classList.add("ok");
+    } else if (len >= MIN_WORK_CHARS) {
       workHint.textContent = "Work requirement met.";
       workHint.classList.add("ok");
     } else {
@@ -215,7 +224,7 @@
   function updateSubmitEnabled() {
     if (questionResolved) return;
     const q = sessionQuestions[currentIndex];
-    const hasWork = workArea.value.trim().length >= MIN_WORK_CHARS;
+    const hasWork = settings.timed || workArea.value.trim().length >= MIN_WORK_CHARS;
     const hasAnswer =
       q.type === "mc"
         ? selectedOptionIndex !== null
@@ -311,6 +320,16 @@
   }
 
   function renderFeedback({ correct, timedOut, flagged, q }) {
+    if (settings.timed) {
+      // Timed mode emulates a real test: no per-question right/wrong or
+      // answer reveal. Full results and explanations appear at the end.
+      feedbackEl.className = "feedback neutral";
+      const headline = flagged ? "Flagged — moving to a new question." : timedOut ? "Time's up." : "Answer recorded.";
+      feedbackEl.innerHTML = `<strong>${headline}</strong> Results and explanations are available when the session ends.`;
+      show(feedbackEl);
+      return;
+    }
+
     feedbackEl.className = "feedback " + (correct ? "correct" : "incorrect");
     const correctAnswerText = q.type === "mc" ? `${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}` : q.answer;
 

@@ -53,12 +53,40 @@ export default {
     }
 
     const { mode, context, messages } = body;
-    if (!["explain", "chat", "summary"].includes(mode)) {
+    if (!["warmup", "explain", "chat", "summary"].includes(mode)) {
       return json({ error: "Invalid mode" }, 400, corsHeaders);
     }
 
     if (!env.OLLAMA_API_KEY) {
       return json({ error: "Server misconfigured: OLLAMA_API_KEY is not set." }, 500, corsHeaders);
+    }
+
+    const model = env.OLLAMA_MODEL || "gpt-oss:120b-cloud";
+
+    // "warmup" is fired silently by the client at the start of a practice
+    // session, well before the student would reach the results screen and
+    // actually want a reply. It triggers Ollama to start loading the model
+    // (num_predict: 1 keeps the actual generation — and cost — minimal) and
+    // returns immediately; it doesn't wait for or care about the outcome.
+    // keep_alive is set generously so the model stays loaded between uses
+    // instead of unloading after Ollama's short default idle timeout.
+    if (mode === "warmup") {
+      try {
+        await fetch("https://ollama.com/api/chat", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env.OLLAMA_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "Hi" }],
+            stream: false,
+            keep_alive: "30m",
+            options: { num_predict: 1 },
+          }),
+        });
+      } catch (e) {
+        // best-effort — a failed warmup just means the first real request falls back to the normal retry path
+      }
+      return json({ warmed: true }, 200, corsHeaders);
     }
 
     const systemPrompt = buildSystemPrompt(mode, sanitizeContext(context));
@@ -70,9 +98,10 @@ export default {
       : [];
 
     const ollamaBody = JSON.stringify({
-      model: env.OLLAMA_MODEL || "gpt-oss:120b-cloud",
+      model,
       messages: [{ role: "system", content: systemPrompt }, ...history],
       stream: false,
+      keep_alive: "30m",
     });
 
     // Ollama Cloud models that aren't already "warm" respond to the first call

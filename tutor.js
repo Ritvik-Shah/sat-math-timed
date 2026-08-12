@@ -79,5 +79,19 @@
     return div.innerHTML;
   }
 
-  root.TUTOR = { ask, renderLite };
+  // Fire-and-forget: tells the worker to start loading the model now, so
+  // it's hopefully already warm by the time the student reaches the results
+  // screen. Silently does nothing if the tutor isn't configured, and never
+  // throws — this must never disrupt the practice session itself.
+  function warmup() {
+    const apiUrl = (window.TUTOR_CONFIG && window.TUTOR_CONFIG.apiUrl) || "";
+    if (!apiUrl || apiUrl.includes("REPLACE_WITH_YOUR_WORKER_URL")) return;
+    fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "warmup" }),
+    }).catch(() => {});
+  }
+
+  root.TUTOR = { ask, renderLite, warmup };
 })(window);
