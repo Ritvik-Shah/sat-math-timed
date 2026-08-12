@@ -28,6 +28,12 @@ questions into AI:
   `localStorage` so you won't see the same question twice. Once a template's easily-reachable
   variations are exhausted, its cache resets and starts producing fresh values again. Clear it
   anytime from the "Reset practice history" link on the start screen.
+- **AI Tutor (optional)** — on the results screen, "Get My AI Study Plan" analyzes what you missed
+  and tells you what fundamentals to focus on; each question in the review list has an "Ask AI to
+  explain" chat that uses your own submitted work to pinpoint where your reasoning went wrong (or
+  just answers whatever you're stuck on). This is powered by an LLM (gpt-oss via Ollama Cloud)
+  behind a small Cloudflare Worker proxy — see [worker/README.md](worker/README.md) to set it up.
+  It's entirely optional; the rest of the site works with zero setup and no API key.
 
 ## Question generation
 

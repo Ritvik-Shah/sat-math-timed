@@ -244,6 +244,128 @@ h1 {
   line-height: 1.5;
 }
 
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-secondary:hover { background: rgba(45, 212, 200, 0.08); }
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.study-plan-block {
+  margin: 20px 0 28px;
+}
+
+.tutor-response {
+  margin-top: 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.tutor-response p { margin: 0 0 10px; }
+.tutor-response p:last-child { margin-bottom: 0; }
+.tutor-response ul { margin: 0 0 10px; padding-left: 20px; }
+.tutor-response code {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.tutor-toggle-row {
+  margin-top: 10px;
+}
+
+.tutor-panel {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.tutor-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.tutor-bubble {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 10px 12px;
+  border-radius: 8px;
+  max-width: 92%;
+}
+.tutor-bubble p { margin: 0 0 8px; }
+.tutor-bubble p:last-child { margin-bottom: 0; }
+.tutor-bubble ul { margin: 0 0 8px; padding-left: 18px; }
+.tutor-bubble.assistant {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+}
+.tutor-bubble.user {
+  background: rgba(45, 212, 200, 0.1);
+  border: 1px solid var(--accent-dim);
+  align-self: flex-end;
+}
+.tutor-bubble.error {
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  color: #ff9a9d;
+  align-self: flex-start;
+}
+.tutor-bubble.tutor-loading {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.tutor-loading, .tutor-error {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.tutor-error { color: #ff9a9d; font-style: normal; }
+
+.tutor-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tutor-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.tutor-input:focus { outline: none; border-color: var(--accent); }
+
+.tutor-send-btn {
+  background: var(--accent);
+  color: #05201d;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tutor-send-btn:hover { opacity: 0.9; }
+
 .btn-primary {
   background: var(--accent);
   color: #05201d;

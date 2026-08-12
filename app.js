@@ -34,6 +34,8 @@
 
   const scoreSummaryEl = document.getElementById("scoreSummary");
   const violationsSummaryEl = document.getElementById("violationsSummary");
+  const studyPlanBtn = document.getElementById("studyPlanBtn");
+  const studyPlanContent = document.getElementById("studyPlanContent");
   const categoryBreakdownEl = document.getElementById("categoryBreakdown");
   const reviewListEl = document.getElementById("reviewList");
   const restartBtn = document.getElementById("restartBtn");
@@ -411,9 +413,156 @@
       hide(violationsSummaryEl);
     }
 
+    hide(studyPlanContent);
+    studyPlanContent.innerHTML = "";
+    studyPlanBtn.disabled = false;
+    studyPlanBtn.textContent = "🤖 Get My AI Study Plan";
+
     renderCategoryBreakdown();
     renderReviewList();
   }
+
+  // ---------- AI Tutor ----------
+  function buildQuestionContext(r) {
+    const q = r.question;
+    const correctAnswerText =
+      q.type === "mc" ? `${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}` : q.answer;
+    return {
+      category: q.category,
+      subcategory: q.subcategory,
+      prompt: q.prompt,
+      correctAnswer: String(correctAnswerText),
+      studentAnswer: r.userAnswerDisplay,
+      workText: r.workText,
+      explanation: q.explanation,
+    };
+  }
+
+  function buildSummaryContext() {
+    const byCategory = {};
+    results.forEach((r) => {
+      const cat = r.question.category;
+      if (!byCategory[cat]) byCategory[cat] = { correct: 0, total: 0 };
+      byCategory[cat].total++;
+      if (r.correct) byCategory[cat].correct++;
+    });
+    const categoryBreakdown = Object.entries(byCategory).map(([category, s]) => ({
+      category, correct: s.correct, total: s.total,
+    }));
+    const missedQuestions = results
+      .filter((r) => !r.correct)
+      .map((r) => {
+        const ctx = buildQuestionContext(r);
+        return {
+          category: ctx.category, subcategory: ctx.subcategory, prompt: ctx.prompt,
+          correctAnswer: ctx.correctAnswer, studentAnswer: ctx.studentAnswer,
+        };
+      });
+    return {
+      totalCorrect: results.filter((r) => r.correct).length,
+      totalQuestions: results.length,
+      categoryBreakdown,
+      missedQuestions,
+    };
+  }
+
+  studyPlanBtn.addEventListener("click", async () => {
+    studyPlanBtn.disabled = true;
+    studyPlanBtn.textContent = "Thinking...";
+    show(studyPlanContent);
+    studyPlanContent.innerHTML = `<div class="tutor-loading">Analyzing your results...</div>`;
+    try {
+      const reply = await TUTOR.ask("summary", buildSummaryContext(), []);
+      studyPlanContent.innerHTML = TUTOR.renderLite(reply);
+    } catch (e) {
+      studyPlanContent.innerHTML = `<div class="tutor-error">${escapeHtml(e.message)}</div>`;
+    } finally {
+      studyPlanBtn.disabled = false;
+      studyPlanBtn.textContent = "🤖 Get My AI Study Plan";
+    }
+  });
+
+  function renderTutorMessages(idx) {
+    const r = results[idx];
+    const messagesEl = reviewListEl.querySelector(`[data-messages-idx="${idx}"]`);
+    if (!messagesEl) return;
+    let html = (r.tutorMessages || [])
+      .map((m) => `<div class="tutor-bubble ${m.role}">${TUTOR.renderLite(m.content)}</div>`)
+      .join("");
+    if (r.tutorLoading) html += `<div class="tutor-bubble assistant tutor-loading">Thinking...</div>`;
+    if (r.tutorError) html += `<div class="tutor-bubble error">${escapeHtml(r.tutorError)}</div>`;
+    messagesEl.innerHTML = html;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function fetchExplain(idx) {
+    const r = results[idx];
+    r.tutorLoading = true;
+    r.tutorError = null;
+    renderTutorMessages(idx);
+    try {
+      const reply = await TUTOR.ask("explain", buildQuestionContext(r), []);
+      r.tutorMessages.push({ role: "assistant", content: reply });
+    } catch (e) {
+      r.tutorError = e.message;
+    } finally {
+      r.tutorLoading = false;
+      renderTutorMessages(idx);
+    }
+  }
+
+  async function sendFollowUp(idx) {
+    const inputEl = reviewListEl.querySelector(`[data-input-idx="${idx}"]`);
+    if (!inputEl) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+    inputEl.value = "";
+    const r = results[idx];
+    r.tutorMessages.push({ role: "user", content: text });
+    r.tutorLoading = true;
+    r.tutorError = null;
+    renderTutorMessages(idx);
+    try {
+      const reply = await TUTOR.ask("chat", buildQuestionContext(r), r.tutorMessages);
+      r.tutorMessages.push({ role: "assistant", content: reply });
+    } catch (e) {
+      r.tutorError = e.message;
+    } finally {
+      r.tutorLoading = false;
+      renderTutorMessages(idx);
+    }
+  }
+
+  reviewListEl.addEventListener("click", (e) => {
+    const toggleBtn = e.target.closest(".tutor-toggle-btn");
+    if (toggleBtn) {
+      const idx = Number(toggleBtn.dataset.idx);
+      const panel = reviewListEl.querySelector(`[data-panel-idx="${idx}"]`);
+      if (!panel) return;
+      if (panel.classList.contains("hidden")) {
+        show(panel);
+        toggleBtn.textContent = "🤖 Hide AI Tutor";
+        const r = results[idx];
+        if (!r.tutorMessages) r.tutorMessages = [];
+        if (r.tutorMessages.length === 0) fetchExplain(idx);
+      } else {
+        hide(panel);
+        toggleBtn.textContent = "🤖 Ask AI to explain";
+      }
+      return;
+    }
+    const sendBtn = e.target.closest(".tutor-send-btn");
+    if (sendBtn) {
+      sendFollowUp(Number(sendBtn.dataset.sendIdx));
+    }
+  });
+
+  reviewListEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.classList.contains("tutor-input")) {
+      e.preventDefault();
+      sendFollowUp(Number(e.target.dataset.inputIdx));
+    }
+  });
 
   function renderCategoryBreakdown() {
     const byCategory = {};
@@ -460,6 +609,16 @@
         </div>
         ${r.workText ? `<div class="review-meta" style="margin-top:6px;">Work shown: "${escapeHtml(r.workText)}"</div>` : ""}
         ${!r.correct ? `<div class="review-explanation"><strong>Why:</strong> ${escapeHtml(r.question.explanation)}</div>` : ""}
+        <div class="tutor-toggle-row">
+          <button type="button" class="btn-link tutor-toggle-btn" data-idx="${i}">🤖 Ask AI to explain</button>
+        </div>
+        <div class="tutor-panel hidden" data-panel-idx="${i}">
+          <div class="tutor-messages" data-messages-idx="${i}"></div>
+          <div class="tutor-input-row">
+            <input type="text" class="tutor-input" data-input-idx="${i}" placeholder="Ask a follow-up question..." />
+            <button type="button" class="tutor-send-btn" data-send-idx="${i}">Send</button>
+          </div>
+        </div>
       `;
       reviewListEl.appendChild(div);
     });

@@ -1,0 +1,24 @@
+name = "sat-math-tutor"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+# Ollama Cloud model to use. "-cloud" suffix runs on Ollama's hosted infrastructure
+# (no local GPU needed) and is billed against your Ollama account.
+# Swap to "gpt-oss:20b-cloud" for faster/cheaper responses.
+OLLAMA_MODEL = "gpt-oss:120b-cloud"
+
+# Comma-separated list of origins allowed to call this worker. Add your local
+# dev server origin(s) here too (e.g. http://localhost:8811) while testing.
+ALLOWED_ORIGINS = "https://ritvik-shah.github.io,http://localhost:8811"
+
+# OLLAMA_API_KEY is set separately as a secret (never goes in this file):
+#   wrangler secret put OLLAMA_API_KEY
+
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60
