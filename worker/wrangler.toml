@@ -5,8 +5,10 @@ compatibility_date = "2026-08-01"
 [vars]
 # Ollama Cloud model to use. "-cloud" suffix runs on Ollama's hosted infrastructure
 # (no local GPU needed) and is billed against your Ollama account.
-# Swap to "gpt-oss:20b-cloud" for faster/cheaper responses.
-OLLAMA_MODEL = "gpt-oss:120b-cloud"
+# 20b loads faster on a cold start than 120b (less weight data to move onto
+# the GPU) at some cost to reasoning quality. Swap back to "gpt-oss:120b-cloud"
+# if you want the stronger model and can live with longer cold starts.
+OLLAMA_MODEL = "gpt-oss:20b-cloud"
 
 # Comma-separated list of origins allowed to call this worker. Add your local
 # dev server origin(s) here too (e.g. http://localhost:8811) while testing.

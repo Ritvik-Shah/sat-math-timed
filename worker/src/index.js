@@ -97,6 +97,21 @@ export default {
           .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_REPLY_INPUT_CHARS) }))
       : [];
 
+    // "explain" and "summary" put everything into the system prompt and send
+    // no chat history, so without this the request has zero user-role
+    // messages. Ollama Cloud appears to silently reject that shape (comes
+    // back as done_reason: "load" instead of a real error), so always send
+    // at least one user turn.
+    if (history.length === 0) {
+      const kickoff =
+        mode === "explain"
+          ? "Please help me understand this question."
+          : mode === "summary"
+            ? "Please give me my study plan."
+            : "Hi.";
+      history.push({ role: "user", content: kickoff });
+    }
+
     const ollamaBody = JSON.stringify({
       model,
       messages: [{ role: "system", content: systemPrompt }, ...history],
