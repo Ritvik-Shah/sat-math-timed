@@ -69,36 +69,63 @@ export default {
           .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_REPLY_INPUT_CHARS) }))
       : [];
 
-    let ollamaRes;
-    try {
-      ollamaRes = await fetch("https://ollama.com/api/chat", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.OLLAMA_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: env.OLLAMA_MODEL || "gpt-oss:120b-cloud",
-          messages: [{ role: "system", content: systemPrompt }, ...history],
-          stream: false,
-        }),
-      });
-    } catch (e) {
-      return json({ error: "Could not reach Ollama Cloud." }, 502, corsHeaders);
+    const ollamaBody = JSON.stringify({
+      model: env.OLLAMA_MODEL || "gpt-oss:120b-cloud",
+      messages: [{ role: "system", content: systemPrompt }, ...history],
+      stream: false,
+    });
+
+    // Ollama Cloud models that aren't already "warm" respond to the first call
+    // with an immediate empty reply (done_reason: "load") while it loads the
+    // model in the background, instead of waiting — and a cold load can take
+    // 30s+. Rather than have one Worker invocation sit waiting that whole
+    // time (bad UX either way, and risks the platform's own execution
+    // limits), do a couple of quick attempts here and otherwise hand a
+    // distinguishable "warming_up" code back to the client, which retries
+    // with its own visible progress state (see tutor.js).
+    const MAX_ATTEMPTS = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let ollamaRes;
+      try {
+        ollamaRes = await fetch("https://ollama.com/api/chat", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.OLLAMA_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: ollamaBody,
+        });
+      } catch (e) {
+        lastError = { error: "Could not reach Ollama Cloud." };
+        break;
+      }
+
+      if (!ollamaRes.ok) {
+        const errText = await ollamaRes.text().catch(() => "");
+        lastError = { error: "Ollama Cloud returned an error.", detail: errText.slice(0, 500) };
+        break; // real errors (auth, bad request, etc.) won't fix themselves on retry
+      }
+
+      const data = await ollamaRes.json().catch(() => null);
+      const reply = data?.message?.content;
+      if (reply) {
+        return json({ reply }, 200, corsHeaders);
+      }
+
+      const stillLoading = data?.done_reason === "load";
+      lastError = stillLoading
+        ? { error: "The AI model is still warming up.", code: "warming_up" }
+        : { error: "Ollama Cloud returned an empty response." };
+      if (stillLoading && attempt < MAX_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1200));
+        continue;
+      }
+      break;
     }
 
-    if (!ollamaRes.ok) {
-      const errText = await ollamaRes.text().catch(() => "");
-      return json({ error: "Ollama Cloud returned an error.", detail: errText.slice(0, 500) }, 502, corsHeaders);
-    }
-
-    const data = await ollamaRes.json().catch(() => null);
-    const reply = data?.message?.content;
-    if (!reply) {
-      return json({ error: "Ollama Cloud returned an empty response." }, 502, corsHeaders);
-    }
-
-    return json({ reply }, 200, corsHeaders);
+    const finalError = lastError || { error: "Ollama Cloud returned an empty response." };
+    return json(finalError, finalError.code === "warming_up" ? 503 : 502, corsHeaders);
   },
 };
 
@@ -134,7 +161,7 @@ function json(obj, status, extraHeaders) {
 
 function buildSystemPrompt(mode, context) {
   const base =
-    "You are a patient, encouraging SAT Math tutor. Keep answers concise (under 200 words unless the student explicitly asks for more detail), use plain language, and reason step by step when explaining math. Never just restate the final answer without explaining the reasoning. Only discuss SAT-level math — politely decline anything else.";
+    "You are a patient, encouraging SAT Math tutor. Keep answers concise (under 200 words unless the student explicitly asks for more detail), use plain language, and reason step by step when explaining math. Never just restate the final answer without explaining the reasoning. Only discuss SAT-level math — politely decline anything else. Write all math in plain text, not LaTeX — use x^2 not \\(x^2\\), sqrt(x) not \\sqrt{x}, a/b not \\frac{a}{b}. The student's screen cannot render LaTeX.";
 
   if (mode === "explain") {
     const c = context;

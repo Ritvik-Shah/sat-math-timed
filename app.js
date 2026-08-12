@@ -466,13 +466,21 @@
     };
   }
 
+  function warmupMessage(attempt) {
+    return attempt === 1
+      ? "Waking up the AI model — first request can take up to a minute..."
+      : `Still warming up (attempt ${attempt})...`;
+  }
+
   studyPlanBtn.addEventListener("click", async () => {
     studyPlanBtn.disabled = true;
     studyPlanBtn.textContent = "Thinking...";
     show(studyPlanContent);
     studyPlanContent.innerHTML = `<div class="tutor-loading">Analyzing your results...</div>`;
     try {
-      const reply = await TUTOR.ask("summary", buildSummaryContext(), []);
+      const reply = await TUTOR.ask("summary", buildSummaryContext(), [], (attempt) => {
+        studyPlanContent.innerHTML = `<div class="tutor-loading">${escapeHtml(warmupMessage(attempt))}</div>`;
+      });
       studyPlanContent.innerHTML = TUTOR.renderLite(reply);
     } catch (e) {
       studyPlanContent.innerHTML = `<div class="tutor-error">${escapeHtml(e.message)}</div>`;
@@ -489,7 +497,7 @@
     let html = (r.tutorMessages || [])
       .map((m) => `<div class="tutor-bubble ${m.role}">${TUTOR.renderLite(m.content)}</div>`)
       .join("");
-    if (r.tutorLoading) html += `<div class="tutor-bubble assistant tutor-loading">Thinking...</div>`;
+    if (r.tutorLoading) html += `<div class="tutor-bubble assistant tutor-loading">${escapeHtml(r.tutorLoadingText || "Thinking...")}</div>`;
     if (r.tutorError) html += `<div class="tutor-bubble error">${escapeHtml(r.tutorError)}</div>`;
     messagesEl.innerHTML = html;
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -498,10 +506,14 @@
   async function fetchExplain(idx) {
     const r = results[idx];
     r.tutorLoading = true;
+    r.tutorLoadingText = "Thinking...";
     r.tutorError = null;
     renderTutorMessages(idx);
     try {
-      const reply = await TUTOR.ask("explain", buildQuestionContext(r), []);
+      const reply = await TUTOR.ask("explain", buildQuestionContext(r), [], (attempt) => {
+        r.tutorLoadingText = warmupMessage(attempt);
+        renderTutorMessages(idx);
+      });
       r.tutorMessages.push({ role: "assistant", content: reply });
     } catch (e) {
       r.tutorError = e.message;
@@ -520,10 +532,14 @@
     const r = results[idx];
     r.tutorMessages.push({ role: "user", content: text });
     r.tutorLoading = true;
+    r.tutorLoadingText = "Thinking...";
     r.tutorError = null;
     renderTutorMessages(idx);
     try {
-      const reply = await TUTOR.ask("chat", buildQuestionContext(r), r.tutorMessages);
+      const reply = await TUTOR.ask("chat", buildQuestionContext(r), r.tutorMessages, (attempt) => {
+        r.tutorLoadingText = warmupMessage(attempt);
+        renderTutorMessages(idx);
+      });
       r.tutorMessages.push({ role: "assistant", content: reply });
     } catch (e) {
       r.tutorError = e.message;

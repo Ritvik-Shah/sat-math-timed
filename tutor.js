@@ -5,34 +5,49 @@
 (function (root) {
   "use strict";
 
-  async function ask(mode, context, messages) {
+  const WARMUP_MAX_ATTEMPTS = 10;
+  const WARMUP_DELAY_MS = 4000;
+
+  // Ollama Cloud models that have gone idle take a while (up to ~30-40s) to
+  // load back in. The worker returns a distinguishable { code: "warming_up" }
+  // for that case rather than sitting on the connection itself; retry here
+  // instead, with an onProgress callback so the UI can show real feedback
+  // rather than one long silent spinner.
+  async function ask(mode, context, messages, onProgress) {
     const apiUrl = (window.TUTOR_CONFIG && window.TUTOR_CONFIG.apiUrl) || "";
     if (!apiUrl || apiUrl.includes("REPLACE_WITH_YOUR_WORKER_URL")) {
       throw new Error("The AI Tutor isn't set up yet. Deploy worker/ and set apiUrl in tutor-config.js.");
     }
 
-    let res;
-    try {
-      res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, context, messages: messages || [] }),
-      });
-    } catch (e) {
-      throw new Error("Couldn't reach the AI Tutor server. Check your connection or try again shortly.");
-    }
+    for (let attempt = 1; attempt <= WARMUP_MAX_ATTEMPTS; attempt++) {
+      let res;
+      try {
+        res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode, context, messages: messages || [] }),
+        });
+      } catch (e) {
+        throw new Error("Couldn't reach the AI Tutor server. Check your connection or try again shortly.");
+      }
 
-    let data;
-    try {
-      data = await res.json();
-    } catch (e) {
-      throw new Error("The AI Tutor server returned an unreadable response.");
-    }
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error("The AI Tutor server returned an unreadable response.");
+      }
 
-    if (!res.ok) {
+      if (res.ok) return data.reply;
+
+      if (data.code === "warming_up" && attempt < WARMUP_MAX_ATTEMPTS) {
+        if (onProgress) onProgress(attempt);
+        await new Promise((resolve) => setTimeout(resolve, WARMUP_DELAY_MS));
+        continue;
+      }
+
       throw new Error(data.error || `AI Tutor request failed (${res.status}).`);
     }
-    return data.reply;
   }
 
   // Minimal, safe renderer for the LLM's reply: escapes HTML first, then

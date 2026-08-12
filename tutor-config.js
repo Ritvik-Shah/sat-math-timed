@@ -3,5 +3,5 @@
 // prints, e.g. "https://sat-math-tutor.YOUR-SUBDOMAIN.workers.dev/tutor".
 // Nothing secret lives in this file — the URL alone is not sensitive.
 window.TUTOR_CONFIG = {
-  apiUrl: "REPLACE_WITH_YOUR_WORKER_URL/tutor",
+  apiUrl: "https://sat-math-tutor.ritvikshah.workers.dev/tutor",
 };
