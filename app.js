@@ -307,7 +307,7 @@
     });
 
     lockControls();
-    renderFeedback({ correct, timedOut, flagged, q });
+    renderFeedback({ timedOut, flagged });
 
     submitBtn.disabled = false;
     submitBtn.textContent = currentIndex === sessionQuestions.length - 1 ? "See Results" : "Next Question";
@@ -319,30 +319,13 @@
     [...qOptionsEl.querySelectorAll("button, input")].forEach((el) => (el.disabled = true));
   }
 
-  function renderFeedback({ correct, timedOut, flagged, q }) {
-    if (settings.timed) {
-      // Timed mode emulates a real test: no per-question right/wrong or
-      // answer reveal. Full results and explanations appear at the end.
-      feedbackEl.className = "feedback neutral";
-      const headline = flagged ? "Flagged — moving to a new question." : timedOut ? "Time's up." : "Answer recorded.";
-      feedbackEl.innerHTML = `<strong>${headline}</strong> Results and explanations are available when the session ends.`;
-      show(feedbackEl);
-      return;
-    }
-
-    feedbackEl.className = "feedback " + (correct ? "correct" : "incorrect");
-    const correctAnswerText = q.type === "mc" ? `${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}` : q.answer;
-
-    let headline;
-    if (flagged) headline = "Marked wrong — lockdown violation.";
-    else if (timedOut) headline = "Time's up — marked wrong.";
-    else headline = correct ? "Correct!" : "Not quite.";
-
-    feedbackEl.innerHTML = `
-      <strong>${headline}</strong><br/>
-      Correct answer: ${correctAnswerText}
-      <div class="explanation">${escapeHtml(q.explanation)}</div>
-    `;
+  function renderFeedback({ timedOut, flagged }) {
+    // Correctness, the right answer, and explanations are always saved for
+    // the results screen at the end — timed or not — so a session plays out
+    // like a real test instead of confirming each answer as you go.
+    feedbackEl.className = "feedback neutral";
+    const headline = flagged ? "Flagged — moving to a new question." : timedOut ? "Time's up." : "Answer recorded.";
+    feedbackEl.innerHTML = `<strong>${headline}</strong> Results and explanations are available when the session ends.`;
     show(feedbackEl);
   }
 
