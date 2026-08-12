@@ -51,10 +51,21 @@
   }
 
   // Minimal, safe renderer for the LLM's reply: escapes HTML first, then
-  // supports **bold**, `code`, "- " bullet lists, and paragraph breaks.
+  // supports **bold**, `code`, "- " bullet lists, paragraph breaks, and
+  // lightweight math formatting (see prettifyMath).
   function renderLite(text) {
     const esc = escapeHtml(text);
-    const withBold = esc.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    // Defense in depth: the system prompt tells the model to stick to plain
+    // prose/bullets/bold, but strip stray markdown this renderer doesn't
+    // understand anyway, so it degrades to readable text instead of showing
+    // raw "##"/"```"/"---" syntax if the model doesn't fully comply.
+    const stripped = esc
+      .replace(/^#{1,6}[ \t]*/gm, "")
+      .replace(/^-{3,}[ \t]*$/gm, "")
+      .replace(/```[a-zA-Z]*\n?/g, "")
+      .replace(/```/g, "");
+    const mathified = prettifyMath(stripped);
+    const withBold = mathified.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     const withCode = withBold.replace(/`([^`]+)`/g, "<code>$1</code>");
     const lines = withCode.split("\n");
     let html = "";
@@ -70,13 +81,52 @@
       }
     }
     if (inList) html += "</ul>";
-    return html || `<p>${esc}</p>`;
+    return html || `<p>${mathified}</p>`;
   }
 
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = String(str);
     return div.innerHTML;
+  }
+
+  // Turns the plain-text math the model writes (per the worker's system
+  // prompt: x^2, sqrt(16), <=, etc. — never LaTeX) into something more
+  // readable: real superscripts, a root sign, and proper comparison/times
+  // symbols. Runs on already-HTML-escaped text, so &lt;/&gt; entities are
+  // what show up for < and >. Whitespace matches are restricted to [ \t]
+  // (never \s) so a run-on match can't accidentally swallow a newline and
+  // merge two lines together.
+  function prettifyMath(escapedText) {
+    const delatexed = stripLatexArtifacts(escapedText);
+    return delatexed
+      .replace(/&lt;=/g, "≤")
+      .replace(/&gt;=/g, "≥")
+      .replace(/!=/g, "≠")
+      .replace(/\bsqrt\(([^)\n]+)\)/gi, "√($1)")
+      .replace(/(\d)[ \t]*\*[ \t]*(\d)/g, "$1 × $2")
+      .replace(/([A-Za-z0-9)\]])\^\(([^()\n]+)\)/g, "$1<sup>$2</sup>")
+      .replace(/([A-Za-z0-9)\]])\^(-?\d+(?:\.\d+)?)/g, "$1<sup>$2</sup>");
+  }
+
+  // Defense in depth: the system prompt tells the model to never use LaTeX,
+  // but smaller models don't always comply — strip the common LaTeX
+  // artifacts down to plain text so a lapse degrades gracefully instead of
+  // showing raw \( \), \frac{}{}, \text{} etc. Order matters: unwrap
+  // delimiters and named commands before the plain-text math rules above run.
+  function stripLatexArtifacts(text) {
+    return text
+      .replace(/\\\(|\\\)|\\\[|\\\]/g, "")
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1/$2")
+      .replace(/\\sqrt\{([^{}]+)\}/g, "sqrt($1)")
+      .replace(/\\text\{([^{}]*)\}/g, "$1")
+      .replace(/\\quad/g, " ")
+      .replace(/\\times/g, "*")
+      .replace(/\\cdot/g, "*")
+      .replace(/\\le\b/g, "≤")
+      .replace(/\\ge\b/g, "≥")
+      .replace(/\\neq\b/g, "≠")
+      .replace(/\\pi\b/g, "π");
   }
 
   // Fire-and-forget: tells the worker to start loading the model now, so

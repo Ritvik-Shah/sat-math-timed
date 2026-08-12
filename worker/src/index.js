@@ -205,7 +205,8 @@ function json(obj, status, extraHeaders) {
 
 function buildSystemPrompt(mode, context) {
   const base =
-    "You are a patient, encouraging SAT Math tutor. Keep answers concise (under 200 words unless the student explicitly asks for more detail), use plain language, and reason step by step when explaining math. Never just restate the final answer without explaining the reasoning. Only discuss SAT-level math — politely decline anything else. Write all math in plain text, not LaTeX — use x^2 not \\(x^2\\), sqrt(x) not \\sqrt{x}, a/b not \\frac{a}{b}. The student's screen cannot render LaTeX.";
+    "You are a patient, encouraging SAT Math tutor. Keep answers concise (under 200 words unless the student explicitly asks for more detail), use plain language, and reason step by step when explaining math. Never just restate the final answer without explaining the reasoning. Only discuss SAT-level math — politely decline anything else." +
+    " Formatting rules — the student's screen only renders plain prose paragraphs, \"- \" bullet points, and **bold** text; nothing else gets rendered, so avoid it entirely: no markdown headers (##), no horizontal rules (---), no code blocks or backticks, no tables, no LaTeX (\\( \\), \\[ \\], $ $, \\frac, \\sqrt) . For math specifically, write exponents as x^2, square roots as sqrt(16), fractions as a/b, multiplication as 2 * 3, and inequalities as <= >= !=. Put standalone equations on their own line rather than burying them mid-sentence, but as plain text within a normal paragraph — not inside a code block.";
 
   if (mode === "explain") {
     const c = context;

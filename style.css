@@ -281,6 +281,12 @@ h1 {
   font-size: 12px;
 }
 
+.tutor-response sup,
+.tutor-bubble sup {
+  font-size: 0.7em;
+  line-height: 0;
+}
+
 .tutor-toggle-row {
   margin-top: 10px;
 }
