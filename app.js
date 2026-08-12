@@ -25,6 +25,7 @@
   const timerText = document.getElementById("timerText");
   const qCategoryEl = document.getElementById("qCategory");
   const qPromptEl = document.getElementById("qPrompt");
+  const qVisualEl = document.getElementById("qVisual");
   const qOptionsEl = document.getElementById("qOptions");
   const workArea = document.getElementById("workArea");
   const workHint = document.getElementById("workHint");
@@ -143,6 +144,13 @@
     qCategoryEl.textContent = q.category;
     qSubcategoryEl.textContent = q.subcategory || "";
     qPromptEl.textContent = q.prompt;
+    if (q.visual) {
+      qVisualEl.innerHTML = window.DIAGRAMS.renderVisual(q.visual);
+      show(qVisualEl);
+    } else {
+      qVisualEl.innerHTML = "";
+      hide(qVisualEl);
+    }
     workArea.value = "";
     workArea.disabled = false;
     updateWorkHint();

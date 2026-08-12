@@ -5,6 +5,10 @@ questions into AI:
 
 - **10,000+ unique questions, generated on the fly** — see [Question generation](#question-generation)
   below for how this works and why it's more reliable than a hand-written question bank at this scale.
+- **Diagrams, graphs, and tables** — questions that need a figure get one: right triangles, circles,
+  boxes, and coordinate-plane graphs are rendered as inline SVG built from the question's own numbers;
+  data-analysis questions that call for a bar chart, scatterplot, or table (including two-way
+  frequency tables) get one too. See [diagrams.js](diagrams.js).
 - **Timed or untimed sessions** — timed mode gives each question 65–105 seconds based on difficulty;
   untimed removes the clock. Either way, Lockdown Mode and fullscreen stay on.
 - **Work required** — students must type a minimum amount of real work/reasoning in a text box

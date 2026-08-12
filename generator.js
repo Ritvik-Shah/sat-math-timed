@@ -129,6 +129,7 @@
           options,
           answer,
           explanation: r.explanation,
+          visual: r.visual || null,
           timeLimit: r.timeLimit || timeLimit,
           signature: `${id}|${JSON.stringify(r.params)}`,
         };
@@ -146,6 +147,7 @@
           prompt: r.prompt,
           answer: String(r.answer),
           explanation: r.explanation,
+          visual: r.visual || null,
           timeLimit: r.timeLimit || timeLimit,
           signature: `${id}|${JSON.stringify(r.params)}`,
         };
@@ -208,6 +210,14 @@
         correct, distractors,
         explanation: `Slope = (y2 - y1) / (x2 - x1) = (${y2} - ${y1}) / (${x2} - ${x1}) = ${y2 - y1}/${dx} = ${m}.`,
         params: { m, x1, dx, y1 },
+        visual: {
+          type: "coordinate-plane",
+          plotPoints: [
+            { x: x1, y: y1, label: `(${x1}, ${y1})` },
+            { x: x2, y: y2, label: `(${x2}, ${y2})` },
+          ],
+          line: { m, b: y1 - m * x1 },
+        },
       };
     },
   });
@@ -281,6 +291,11 @@
         correct, distractors,
         explanation: `The x-intercept occurs where f(x) = 0: ${m}x ${bTerm} = 0, so x = ${fracStr(-b, m)}. The x-intercept is (${fracStr(-b, m)}, 0).`,
         params: { m, b },
+        visual: {
+          type: "coordinate-plane",
+          plotPoints: [{ x: 0, y: b, label: `(0, ${b})` }],
+          line: { m, b },
+        },
       };
     },
   });
@@ -374,6 +389,7 @@
         answer,
         explanation: `Factor: (x ${pTerm})(x ${qTerm}) = 0, so x = ${p} or x = ${q}. The greatest value is ${answer}.`,
         params: { p, q },
+        visual: { type: "parabola", r1: p, r2: q, opensUp: true },
       };
     },
   });
@@ -549,10 +565,11 @@
         remaining = total - list.reduce((s, v) => s + v, 0);
       } while (remaining < 0 || remaining > 60);
       return {
-        prompt: `The average (arithmetic mean) of ${n} numbers is ${avg}. If ${n - 1} of the numbers are ${list.join(", ")}, what is the remaining number?`,
+        prompt: `The average (arithmetic mean) of the ${n} numbers shown in the table is ${avg}. What is the value of the missing number?`,
         answer: remaining,
         explanation: `The sum of all ${n} numbers is ${avg} × ${n} = ${total}. Subtract the known numbers: ${total} - ${list.join(" - ")} = ${remaining}.`,
         params: { n, avg, list },
+        visual: { type: "table", headers: list.map((_, i) => `Number ${i + 1}`).concat(`Number ${n}`), rows: [[...list, "?"]] },
       };
     },
   });
@@ -566,10 +583,15 @@
       const g2 = g1 + randInt(2, 25);
       const d2 = mpg * g2;
       return {
-        prompt: `A car travels ${d1} miles using ${g1} gallons of gas. At this rate, how many gallons of gas would the car need to travel ${d2} miles?`,
+        prompt: `The table shows the distance a car travels on a given amount of gas, assuming a constant rate. How many gallons of gas would the car need to travel ${d2} miles?`,
         answer: g2,
         explanation: `Find the rate: ${d1} miles ÷ ${g1} gallons = ${mpg} miles per gallon. Then ${d2} ÷ ${mpg} = ${g2} gallons.`,
         params: { mpg, g1, g2 },
+        visual: {
+          type: "table",
+          headers: ["Distance (miles)", "Gas used (gallons)"],
+          rows: [[d1, g1], [d2, "?"]],
+        },
       };
     },
   });
@@ -618,10 +640,15 @@
       const total = n1 * a1 + n2 * a2;
       const answer = fmtDecimal(total / (n1 + n2), 1);
       return {
-        prompt: `A class of ${n1} students has an average test score of ${a1}. Another class of ${n2} students has an average test score of ${a2}. What is the average score of all the students combined? (Round to the nearest tenth.)`,
+        prompt: `The table shows the number of students and average test score for two classes. What is the average score of all the students combined? (Round to the nearest tenth.)`,
         answer,
         explanation: `Total points = ${n1} × ${a1} + ${n2} × ${a2} = ${n1 * a1} + ${n2 * a2} = ${total}. Combined average = ${total} / (${n1} + ${n2}) = ${answer}.`,
         params: { n1, n2, a1, a2 },
+        visual: {
+          type: "table",
+          headers: ["Class", "Number of Students", "Average Score"],
+          rows: [["A", n1, a1], ["B", n2, a2]],
+        },
       };
     },
   });
@@ -646,13 +673,15 @@
     id: "data-median", category: CATEGORIES.DATA_ANALYSIS, subcategory: "One-variable data", timeLimit: 80,
     build() {
       const n = choice([5, 7, 9]);
-      const list = Array.from({ length: n }, () => randInt(1, 99)).sort((a, b) => a - b);
-      const answer = list[(n - 1) / 2];
+      const sorted = Array.from({ length: n }, () => randInt(1, 99)).sort((a, b) => a - b);
+      const display = shuffle(sorted);
+      const answer = sorted[(n - 1) / 2];
       return {
-        prompt: `What is the median of the following data set? ${list.join(", ")}`,
+        prompt: `The table shows a data set of ${n} values. What is the median of the data set?`,
         answer,
-        explanation: `With ${n} values already in order, the median is the middle value: ${answer}.`,
-        params: { list },
+        explanation: `Sort the values from least to greatest: ${sorted.join(", ")}. With ${n} values in order, the median is the middle value: ${answer}.`,
+        params: { sorted },
+        visual: { type: "table", headers: display.map((_, i) => `#${i + 1}`), rows: [display] },
       };
     },
   });
@@ -664,10 +693,11 @@
       const list = Array.from({ length: n }, () => randInt(1, 99));
       const answer = Math.max(...list) - Math.min(...list);
       return {
-        prompt: `What is the range of the following data set? ${list.join(", ")}`,
+        prompt: `The table shows a data set of ${n} values. What is the range of the data set?`,
         answer,
         explanation: `Range = maximum - minimum = ${Math.max(...list)} - ${Math.min(...list)} = ${answer}.`,
         params: { list },
+        visual: { type: "table", headers: list.map((_, i) => `#${i + 1}`), rows: [list] },
       };
     },
   });
@@ -689,6 +719,75 @@
     },
   });
 
+  const BAR_CHART_THEMES = [
+    { unit: "books read last month", noun: "people", labels: ["Ana", "Ben", "Cara", "Dev", "Ella"] },
+    { unit: "hours studied this week", noun: "days", labels: ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+    { unit: "cars sold", noun: "months", labels: ["Jan", "Feb", "Mar", "Apr", "May"] },
+    { unit: "cups of coffee sold", noun: "stores", labels: ["Store A", "Store B", "Store C", "Store D", "Store E"] },
+  ];
+
+  registerGrid({
+    id: "data-bar-chart", category: CATEGORIES.DATA_ANALYSIS, subcategory: "One-variable data", timeLimit: 90,
+    build() {
+      const theme = choice(BAR_CHART_THEMES);
+      const values = theme.labels.map(() => randInt(3, 24));
+      const total = values.reduce((s, v) => s + v, 0);
+      return {
+        prompt: `The bar graph shows the number of ${theme.unit} for each of ${theme.labels.length} ${theme.noun}. What is the total across all of them?`,
+        answer: total,
+        explanation: `Add the value of every bar: ${values.join(" + ")} = ${total}.`,
+        params: { theme: theme.unit, values },
+        visual: { type: "bar-chart", labels: theme.labels, values, yLabel: theme.unit },
+      };
+    },
+  });
+
+  registerGrid({
+    id: "data-two-way-table", category: CATEGORIES.DATA_ANALYSIS, subcategory: "Two-variable data", timeLimit: 95,
+    build() {
+      const rowLabels = choice([["Freshmen", "Sophomores"], ["Morning shift", "Evening shift"], ["Team A", "Team B"]]);
+      const colLabels = choice([["Prefers Math", "Prefers Science"], ["Voted Yes", "Voted No"], ["Passed", "Did Not Pass"]]);
+      const a = randInt(8, 40), b = randInt(8, 40), c = randInt(8, 40), d = randInt(8, 40);
+      const rowTotal1 = a + b, rowTotal2 = c + d;
+      const colTotal1 = a + c, colTotal2 = b + d;
+      const grandTotal = a + b + c + d;
+      return {
+        prompt: `The table shows the results of a survey of ${grandTotal} people. What is the missing value in the table?`,
+        answer: d,
+        explanation: `Each row must add up to its total. The second row's total is ${rowTotal2}, and the known value in that row is ${c}, so the missing value is ${rowTotal2} - ${c} = ${d}. (You can check this with the column total too: ${colTotal2} - ${b} = ${d}.)`,
+        params: { rowLabels, colLabels, a, b, c },
+        visual: {
+          type: "table",
+          headers: ["", colLabels[0], colLabels[1], "Total"],
+          rows: [
+            [rowLabels[0], a, b, rowTotal1],
+            [rowLabels[1], c, "?", rowTotal2],
+            ["Total", colTotal1, colTotal2, grandTotal],
+          ],
+        },
+      };
+    },
+  });
+
+  registerGrid({
+    id: "data-scatterplot", category: CATEGORIES.DATA_ANALYSIS, subcategory: "Two-variable data", timeLimit: 100,
+    build() {
+      const m = randInt(-6, 6) || 2;
+      const b = randInt(-10, 30);
+      const xs = [1, 2, 3, 4, 5, 6];
+      const plotPoints = xs.map((x) => ({ x, y: m * x + b + choice([-2, -1, 0, 0, 1, 2]) }));
+      const x0 = choice([8, 9, 10, 12]);
+      const answer = m * x0 + b;
+      return {
+        prompt: `The scatterplot shows six data points and the line of best fit. Based on the line of best fit, what is the predicted value of y when x = ${x0}?`,
+        answer,
+        explanation: `The line of best fit is y = ${m}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)}. Substitute x = ${x0}: y = ${m}(${x0}) ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} = ${m * x0} ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} = ${answer}.`,
+        params: { m, b, x0 },
+        visual: { type: "coordinate-plane", plotPoints, line: { m, b } },
+      };
+    },
+  });
+
   // ================= GEOMETRY & TRIGONOMETRY =================
 
   registerGrid({
@@ -701,6 +800,7 @@
         answer: r,
         explanation: `C = 2πr, so r = C / (2π) = ${c}π / (2π) = ${r}.`,
         params: { r },
+        visual: { type: "circle", radiusLabel: "r = ?" },
       };
     },
   });
@@ -714,6 +814,7 @@
         answer: c,
         explanation: `By the Pythagorean theorem, a² + b² = c²: ${a}² + ${b}² = ${a * a} + ${b * b} = ${a * a + b * b}. So c = √${a * a + b * b} = ${c}.`,
         params: { a, b, c },
+        visual: { type: "right-triangle", bottomLabel: a, leftLabel: b, hypLabel: "?", scaleNote: true },
       };
     },
   });
@@ -727,6 +828,7 @@
         answer: leg2,
         explanation: `By the Pythagorean theorem, leg² = hyp² - leg1² = ${hyp}² - ${leg1}² = ${hyp * hyp} - ${leg1 * leg1} = ${hyp * hyp - leg1 * leg1}. So the other leg = √${hyp * hyp - leg1 * leg1} = ${leg2}.`,
         params: { leg1, leg2, hyp },
+        visual: { type: "right-triangle", bottomLabel: leg1, leftLabel: "?", hypLabel: hyp, scaleNote: true },
       };
     },
   });
@@ -745,6 +847,7 @@
         answer,
         explanation: `The angles of a triangle sum to 180 degrees: 180 - ${a} - ${b} = ${answer}.`,
         params: { a, b },
+        visual: { type: "triangle-angles", angleA: `${a}°`, angleB: `${b}°`, angleC: "?" },
       };
     },
   });
@@ -759,6 +862,7 @@
         answer,
         explanation: `The two acute angles of a right triangle sum to 90 degrees: 90 - ${a} = ${answer}.`,
         params: { a },
+        visual: { type: "right-triangle", vertexAngleLabels: { C: `${a}°`, B: "?°" } },
       };
     },
   });
@@ -777,6 +881,7 @@
         correct, distractors: distractors.slice(0, 3),
         explanation: `Volume = length × width × height, so height = Volume / (length × width) = ${volume} / (${l} × ${w}) = ${volume} / ${l * w} = ${h}.`,
         params: { l, w, h },
+        visual: { type: "box", lengthLabel: `l = ${l}`, widthLabel: `w = ${w}`, heightLabel: "h = ?" },
       };
     },
   });
@@ -792,6 +897,7 @@
         answer,
         explanation: `Side length = √${area} = ${side}. Perimeter = 4 × ${side} = ${answer}.`,
         params: { side },
+        visual: { type: "square", areaLabel: `Area = ${area}` },
       };
     },
   });
@@ -808,6 +914,7 @@
         correct, distractors,
         explanation: `Area = πr² = π(${r})² = ${area}π.`,
         params: { r },
+        visual: { type: "circle", radiusLabel: `r = ${r}` },
       };
     },
   });
@@ -828,6 +935,7 @@
         correct, distractors: distractors.slice(0, 3),
         explanation: `Using SOH-CAH-TOA: sine = opposite/hypotenuse, cosine = adjacent/hypotenuse, tangent = opposite/adjacent. The ${ratioName} of θ = ${correct}.`,
         params: { legA, legB, hyp, ratioName },
+        visual: { type: "right-triangle", bottomLabel: legB, leftLabel: legA, hypLabel: hyp, thetaVertex: "B", scaleNote: true },
       };
     },
   });
@@ -845,6 +953,14 @@
         answer: dist,
         explanation: `Distance = √[(x2-x1)² + (y2-y1)²] = √[(${x2 - x1})² + (${y2 - y1})²] = √[${(x2 - x1) ** 2} + ${(y2 - y1) ** 2}] = √${(x2 - x1) ** 2 + (y2 - y1) ** 2} = ${dist}.`,
         params: { x1, y1, dx, dy },
+        visual: {
+          type: "coordinate-plane",
+          plotPoints: [
+            { x: x1, y: y1, label: `(${x1}, ${y1})` },
+            { x: x2, y: y2, label: `(${x2}, ${y2})` },
+          ],
+          segment: { x1, y1, x2, y2 },
+        },
       };
     },
   });
