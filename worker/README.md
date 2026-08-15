@@ -114,3 +114,32 @@ npx wrangler dev --port 8787 \
 
 Then point `tutor-config.js` at `http://127.0.0.1:8787/tutor` temporarily. Don't commit that
 change — it's for local testing only.
+
+## Automatic deploys (CI)
+
+`.github/workflows/deploy-worker.yml` runs `wrangler deploy` automatically whenever a change
+under `worker/` lands on `main` (direct push or merged PR). This closes a gap that otherwise bites
+you every time: **`git push` never touches Cloudflare** — the live Worker keeps running whatever
+code was deployed last until someone runs `wrangler deploy` by hand. With this workflow in place,
+merging to `main` *is* the deploy.
+
+Two one-time manual steps to wire it up (secrets, by nature, aren't something CI can bootstrap
+itself):
+
+1. **Create a Cloudflare API token** — dashboard → click your profile icon → *My Profile* → *API
+   Tokens* → *Create Token* → use the **"Edit Cloudflare Workers"** template (scope it to this one
+   account rather than "All accounts" if given the choice). Copy the token — Cloudflare only shows
+   it once.
+2. **Add two GitHub repo secrets** — this repo's GitHub page → *Settings* → *Secrets and variables*
+   → *Actions* → *New repository secret*:
+   - `CLOUDFLARE_API_TOKEN` — the token from step 1.
+   - `CLOUDFLARE_ACCOUNT_ID` — from `npx wrangler whoami`, or the Cloudflare dashboard sidebar.
+
+After that, every merge to `main` that touches `worker/` redeploys automatically — no more silent
+drift between what's in the repo and what's actually live. You can also trigger a redeploy by hand
+from the repo's *Actions* tab (the workflow has a `workflow_dispatch` trigger) without needing a
+code change.
+
+Reminder: this workflow only pushes code + `[vars]` + bindings from `wrangler.toml` — it never
+touches secrets set via `wrangler secret put` (`OLLAMA_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+Those are set once, by hand, and persist across every future deploy, CI or manual.

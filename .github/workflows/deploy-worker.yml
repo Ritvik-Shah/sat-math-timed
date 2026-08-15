@@ -1,0 +1,31 @@
+name: Deploy AI Tutor Worker
+
+# Runs whenever something lands on main (a direct push or a merged PR) and
+# only touched worker/ — the site itself is static GitHub Pages and doesn't
+# need a deploy step, so there's no point re-deploying the Worker for a
+# style.css or app.js-only change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch: {} # lets you trigger a redeploy by hand from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # wrangler deploy pushes code + [vars] + bindings from wrangler.toml.
+      # It does NOT touch secrets set via `wrangler secret put` (OLLAMA_API_KEY,
+      # SUPABASE_SERVICE_ROLE_KEY) — those persist server-side across deploys
+      # and only need to be set once, by hand, per worker/README.md.
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy
