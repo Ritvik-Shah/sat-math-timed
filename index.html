@@ -11,6 +11,7 @@
 <header class="topbar">
   <div class="brand">SAT Math <span class="accent">Practice</span></div>
   <div id="lockdownBadge" class="lockdown-badge hidden">🔒 Lockdown Mode Active</div>
+  <div id="accountSlot" class="account-slot"></div>
 </header>
 
 <main id="app">
@@ -143,6 +144,34 @@
     <button id="restartBtn" class="btn-primary">Start New Session</button>
   </section>
 
+  <!-- PROGRESS SCREEN (Insights) -->
+  <section id="progressScreen" class="screen hidden">
+    <h1>Your Progress</h1>
+    <p class="lede">Accuracy over time, strengths and weaknesses by category, and an AI-generated path to 800.</p>
+
+    <div id="progressEmptyState" class="progress-empty hidden">
+      No practice sessions saved to your account yet. Complete a session while logged in and it'll show up here.
+    </div>
+
+    <div id="progressContent" class="hidden">
+      <div id="progressStats" class="progress-stats"></div>
+
+      <h3 class="section-heading">Session History</h3>
+      <div id="accuracyTrend" class="accuracy-trend"></div>
+
+      <h3 class="section-heading">Breakdown by Category</h3>
+      <div id="progressCategoryBreakdown" class="category-breakdown"></div>
+
+      <h3 class="section-heading">Path to 800</h3>
+      <div class="study-plan-block">
+        <button id="pathTo800Btn" class="btn-secondary">🤖 Generate My Path to 800</button>
+        <div id="pathTo800Content" class="tutor-response hidden"></div>
+      </div>
+    </div>
+
+    <button id="progressBackBtn" class="btn-primary">Back</button>
+  </section>
+
   <!-- TAB-SWITCH WARNING OVERLAY -->
   <div id="warningOverlay" class="warning-overlay hidden">
     <div class="warning-box">
@@ -153,12 +182,44 @@
     </div>
   </div>
 
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="modal hidden">
+    <div class="modal-box">
+      <button id="authModalClose" class="modal-close" aria-label="Close">&times;</button>
+
+      <div id="authError" class="auth-error hidden"></div>
+
+      <form id="loginForm" class="auth-form">
+        <h2>Log in</h2>
+        <p class="modal-desc">Accounts are provisioned by the site admin. Ask the admin to get access.</p>
+        <label class="auth-label" for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" class="auth-input" autocomplete="email" required />
+        <label class="auth-label" for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" class="auth-input" autocomplete="current-password" required />
+        <button type="submit" id="loginSubmitBtn" class="btn-primary auth-submit">Log in</button>
+      </form>
+
+      <form id="setPasswordForm" class="auth-form hidden">
+        <h2>Set your password</h2>
+        <p class="modal-desc">You're setting up your account for the first time (or resetting your password).</p>
+        <label class="auth-label" for="newPassword">New password</label>
+        <input type="password" id="newPassword" class="auth-input" autocomplete="new-password" required />
+        <label class="auth-label" for="confirmPassword">Confirm password</label>
+        <input type="password" id="confirmPassword" class="auth-input" autocomplete="new-password" required />
+        <button type="submit" id="setPasswordSubmitBtn" class="btn-primary auth-submit">Set password</button>
+      </form>
+    </div>
+  </div>
+
 </main>
 
 <footer class="foot">
-  Built for focused practice. No accounts, no server — questions are generated and your history is cached in your own browser.
+  Anonymous practice is free, unauthenticated, and stays in your own browser — no accounts or server required. Logging in (admin-provisioned accounts only) additionally saves your history and unlocks the AI Tutor.
 </footer>
 
+<script src="vendor/supabase-js.js"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="diagrams.js"></script>
 <script src="generator.js"></script>
 <script src="tutor-config.js"></script>

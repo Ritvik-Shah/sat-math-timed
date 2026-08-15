@@ -17,6 +17,24 @@ ALLOWED_ORIGINS = "https://ritvik-shah.github.io,http://localhost:8811"
 # OLLAMA_API_KEY is set separately as a secret (never goes in this file):
 #   wrangler secret put OLLAMA_API_KEY
 
+# Supabase project URL and anon (public) key, used to verify the bearer
+# token a logged-in user sends with /tutor requests (mode != "warmup").
+# Both are safe to keep in plain vars — the anon key is meant to be public,
+# it can't read/write anything RLS doesn't allow.
+SUPABASE_URL = "https://khooprfrdazbhsxeasyn.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_Uz-FEWXsX4BCaAVxbFgEnA_ktmWCjYb"
+
+# Monthly per-account cap on AI Tutor requests (explain/chat/summary
+# combined), enforced via the tutor_usage table. 300/month is a conservative
+# starting guess with no real usage data behind it yet — revisit once you
+# can see actual per-user request volume.
+TUTOR_MONTHLY_QUOTA = "300"
+
+# SUPABASE_SERVICE_ROLE_KEY is set separately as a secret (never goes in this
+# file) — it's used server-side only, to read/write subscriptions and
+# tutor_usage without being subject to RLS:
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
 [[ratelimits]]
 name = "RATE_LIMITER"
 namespace_id = "1001"

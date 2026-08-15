@@ -46,6 +46,60 @@ html, body {
   background: rgba(45, 212, 200, 0.08);
 }
 
+.account-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-left: 16px;
+}
+
+.account-email {
+  color: var(--text-dim);
+  margin-right: 2px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-tab {
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 7px 14px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.account-tab-login,
+.account-tab-progress {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+}
+.account-tab-login:hover,
+.account-tab-progress:hover {
+  background: rgba(45, 212, 200, 0.08);
+}
+.account-tab-progress.active {
+  background: var(--accent);
+  color: #05201d;
+  border-color: var(--accent);
+}
+
+.account-tab-logout {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.account-tab-logout:hover {
+  color: #ff9a9d;
+  border-color: var(--danger);
+  background: var(--danger-dim);
+}
+
 #app {
   max-width: 720px;
   margin: 0 auto;
@@ -698,6 +752,156 @@ h1 {
   font-size: 12px;
   padding: 24px;
   border-top: 1px solid var(--border);
+}
+
+/* ---------- Auth modal (mirrors .warning-overlay / .warning-box) ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal.hidden { display: none; }
+
+.modal-box {
+  position: relative;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+.modal-close:hover { color: var(--text); }
+
+.auth-form.hidden { display: none; }
+
+.auth-form h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.modal-desc {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.auth-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.auth-input {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.auth-input:focus { outline: none; border-color: var(--accent); }
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.auth-error {
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  color: #ff9a9d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.auth-error.hidden { display: none; }
+
+/* ---------- Progress screen ---------- */
+.progress-stats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.progress-stat {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.progress-stat-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-right: 4px;
+}
+
+.session-pill {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.session-flag {
+  color: var(--danger);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.accuracy-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.progress-empty {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+.progress-empty.hidden { display: none; }
+
+/* ---------- Locked-state (no subscription) prompts ---------- */
+.tutor-locked {
+  font-size: 13px;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  line-height: 1.5;
 }
 
 .hidden { display: none !important; }

@@ -19,12 +19,26 @@
       throw new Error("The AI Tutor isn't set up yet. Deploy worker/ and set apiUrl in tutor-config.js.");
     }
 
+    // Attach the Supabase access token when a session exists, so the Worker
+    // can authorize explain/chat/summary requests (warmup stays open either
+    // way). No header at all when logged out — anonymous warmup calls are
+    // unaffected. The UI is expected to avoid calling explain/chat/summary in
+    // the first place when logged out/unsubscribed; this header is defense in
+    // depth for the subscribed case.
+    const headers = { "Content-Type": "application/json" };
+    if (window.AUTH) {
+      const session = await AUTH.getSession();
+      if (session && session.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+    }
+
     for (let attempt = 1; attempt <= WARMUP_MAX_ATTEMPTS; attempt++) {
       let res;
       try {
         res = await fetch(apiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ mode, context, messages: messages || [] }),
         });
       } catch (e) {

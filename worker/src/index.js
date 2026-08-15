@@ -33,14 +33,10 @@ export default {
       return json({ error: "Origin not allowed" }, 403, corsHeaders);
     }
 
-    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    if (env.RATE_LIMITER) {
-      const { success } = await env.RATE_LIMITER.limit({ key: ip });
-      if (!success) {
-        return json({ error: "You're asking a lot of questions at once — wait a moment and try again." }, 429, corsHeaders);
-      }
-    }
-
+    // Body needs to be parsed here — earlier than in the original flow — so
+    // the auth/subscription/quota gate below (which needs `mode` to decide
+    // whether it even applies) can sit in its required position: right
+    // after the origin check and before the per-IP rate limiter backstop.
     let body;
     try {
       body = await request.json();
@@ -55,6 +51,25 @@ export default {
     const { mode, context, messages } = body;
     if (!["warmup", "explain", "chat", "summary"].includes(mode)) {
       return json({ error: "Invalid mode" }, 400, corsHeaders);
+    }
+
+    // Auth + subscription + monthly-quota gate. "warmup" is an invisible
+    // backend pre-warm call with no user content, so it stays open exactly
+    // as before; every other mode now requires a logged-in, subscribed,
+    // under-quota Supabase user. There's no billing system here — access is
+    // granted purely by the site admin inserting a row into `subscriptions`
+    // by hand, so this just checks whether such a row exists and is active.
+    const gate = await checkAuthAndQuota(mode, request, env);
+    if (gate) {
+      return json(gate.body, gate.status, corsHeaders);
+    }
+
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    if (env.RATE_LIMITER) {
+      const { success } = await env.RATE_LIMITER.limit({ key: ip });
+      if (!success) {
+        return json({ error: "You're asking a lot of questions at once — wait a moment and try again." }, 429, corsHeaders);
+      }
     }
 
     if (!env.OLLAMA_API_KEY) {
@@ -173,6 +188,148 @@ export default {
   },
 };
 
+// Gates every mode except "warmup" behind a logged-in, subscribed, under-quota
+// Supabase user. Returns null when the request may proceed, or
+// { status, body } describing the rejection response otherwise.
+//
+// There's no Stripe/billing integration in this build — a "subscription" is
+// just a row in the `subscriptions` table that the site admin inserts by
+// hand via the Supabase SQL editor. This only checks whether such a row
+// exists and is currently active; it doesn't care how it got there.
+async function checkAuthAndQuota(mode, request, env) {
+  if (mode === "warmup") return null;
+
+  const authHeader = request.headers.get("Authorization") || "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  const token = match && match[1];
+  if (!token) {
+    return {
+      status: 401,
+      body: { error: "Sign up and subscribe to use the AI Tutor.", code: "auth_required" },
+    };
+  }
+
+  // Step 1: verify the token against Supabase Auth and pull out the user id.
+  let userId;
+  try {
+    const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: env.SUPABASE_ANON_KEY,
+      },
+    });
+    if (!userRes.ok) {
+      // Invalid or expired token — same message/code as a missing one.
+      return {
+        status: 401,
+        body: { error: "Sign up and subscribe to use the AI Tutor.", code: "auth_required" },
+      };
+    }
+    const userData = await userRes.json().catch(() => null);
+    userId = userData && userData.id;
+    if (!userId) {
+      return {
+        status: 401,
+        body: { error: "Sign up and subscribe to use the AI Tutor.", code: "auth_required" },
+      };
+    }
+  } catch (e) {
+    // Couldn't reach Supabase Auth at all — fail closed, don't crash.
+    return { status: 502, body: { error: "Could not verify your account right now. Try again shortly." } };
+  }
+
+  // Step 2: look up their subscription with the service-role key (bypasses
+  // RLS, since this worker isn't acting as the user).
+  let sub;
+  try {
+    const subRes = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}&select=status,current_period_end`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!subRes.ok) throw new Error(`subscriptions lookup failed: ${subRes.status}`);
+    const rows = await subRes.json();
+    sub = Array.isArray(rows) ? rows[0] : null;
+  } catch (e) {
+    return { status: 502, body: { error: "Could not verify your subscription right now. Try again shortly." } };
+  }
+
+  // "Active" mirrors is_subscription_active from the SQL schema: status is
+  // 'active' and current_period_end is either unset or still in the future.
+  const isActive =
+    !!sub &&
+    sub.status === "active" &&
+    (!sub.current_period_end || new Date(sub.current_period_end).getTime() > Date.now());
+
+  if (!isActive) {
+    return {
+      status: 402,
+      body: { error: "Subscribe to unlock the AI Tutor.", code: "subscription_required" },
+    };
+  }
+
+  // Step 3: check and increment the monthly quota, bucketed by
+  // (user_id, period_start) where period_start is the first of the current
+  // UTC month.
+  const now = new Date();
+  const periodStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const quota = parseInt(env.TUTOR_MONTHLY_QUOTA, 10) || 300;
+
+  try {
+    const usageRes = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/tutor_usage?user_id=eq.${userId}&period_start=eq.${periodStart}&select=request_count`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!usageRes.ok) throw new Error(`tutor_usage lookup failed: ${usageRes.status}`);
+    const usageRows = await usageRes.json();
+    const currentCount = (usageRows && usageRows[0] && usageRows[0].request_count) || 0;
+
+    if (currentCount >= quota) {
+      return {
+        status: 429,
+        body: {
+          error: "You've hit your monthly AI Tutor limit. It resets next month.",
+          code: "quota_exceeded",
+        },
+      };
+    }
+
+    // Best-effort upsert — if two requests race, one may lose an increment.
+    // That's an acceptable minor imprecision for a quota counter; not worth
+    // locking over.
+    //
+    // on_conflict is required here: tutor_usage has no primary key, only a
+    // unique(user_id, period_start) constraint, and PostgREST's
+    // resolution=merge-duplicates only knows which constraint to upsert
+    // against if told explicitly — without this it silently falls back to a
+    // plain insert and 409s on the second request of the month.
+    const upsertRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tutor_usage?on_conflict=user_id,period_start`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify({ user_id: userId, period_start: periodStart, request_count: currentCount + 1 }),
+    });
+    if (!upsertRes.ok) throw new Error(`tutor_usage upsert failed: ${upsertRes.status}`);
+  } catch (e) {
+    return { status: 502, body: { error: "Could not update your usage right now. Try again shortly." } };
+  }
+
+  return null; // authenticated, subscribed, under quota — proceed to Ollama
+}
+
 function sanitizeContext(context) {
   if (!context || typeof context !== "object") return {};
   const clean = {};
@@ -187,7 +344,12 @@ function sanitizeContext(context) {
 function buildCorsHeaders(origin, allowedOrigins) {
   const headers = {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    // Content-Type was here from the start; Authorization was added once
+    // logged-in requests started sending a bearer token (see tutor.js) but
+    // the preflight allowlist below never caught up — without it the browser
+    // blocks the actual request before it's even sent, which surfaces to the
+    // user as a generic "couldn't reach the server" network error.
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     Vary: "Origin",
   };
   if (allowedOrigins.includes(origin)) {

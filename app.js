@@ -9,7 +9,28 @@
   const setupScreen = document.getElementById("setupScreen");
   const quizScreen = document.getElementById("quizScreen");
   const resultsScreen = document.getElementById("resultsScreen");
+  const progressScreen = document.getElementById("progressScreen");
   const lockdownBadge = document.getElementById("lockdownBadge");
+  const accountSlot = document.getElementById("accountSlot");
+
+  const authModal = document.getElementById("authModal");
+  const authModalClose = document.getElementById("authModalClose");
+  const authError = document.getElementById("authError");
+  const loginForm = document.getElementById("loginForm");
+  const loginEmail = document.getElementById("loginEmail");
+  const loginPassword = document.getElementById("loginPassword");
+  const setPasswordForm = document.getElementById("setPasswordForm");
+  const newPassword = document.getElementById("newPassword");
+  const confirmPassword = document.getElementById("confirmPassword");
+
+  const progressEmptyState = document.getElementById("progressEmptyState");
+  const progressContent = document.getElementById("progressContent");
+  const progressStatsEl = document.getElementById("progressStats");
+  const accuracyTrendEl = document.getElementById("accuracyTrend");
+  const progressCategoryBreakdownEl = document.getElementById("progressCategoryBreakdown");
+  const pathTo800Btn = document.getElementById("pathTo800Btn");
+  const pathTo800Content = document.getElementById("pathTo800Content");
+  const progressBackBtn = document.getElementById("progressBackBtn");
 
   const categorySelect = document.getElementById("categorySelect");
   const questionCountSelect = document.getElementById("questionCount");
@@ -78,12 +99,17 @@
   // Generates a question from the bank, avoiding anything already in the seen-cache.
   // If a template's reachable parameter space has been exhausted, its cache entries
   // are cleared so the pool of values for that template effectively renews.
+  //
+  // Anonymous path (localStorage seenSet) is unchanged. When logged-in+subscribed,
+  // a question is ALSO considered "seen" if it's in serverSeenSet — an in-memory
+  // Set populated once at session start from a single Supabase query (see
+  // startBtn's click handler) rather than queried per-question here.
   function generateUniqueQuestion(categoryFilter) {
     let q, tries = 0;
     do {
       q = BANK.generateQuestion(categoryFilter);
       tries++;
-    } while (seenSet.has(q.signature) && tries < 60);
+    } while ((seenSet.has(q.signature) || (isSubscribed && serverSeenSet.has(q.signature))) && tries < 60);
 
     if (seenSet.has(q.signature)) {
       const prefix = q.signature.split("|")[0] + "|";
@@ -109,9 +135,151 @@
   let questionResolved = false;
   let quizActive = false;
   let pendingSwap = false;
+  let sessionStartedAt = null;
+
+  // ---------- Account / subscription state ----------
+  // Cached rather than re-checked per-render: AUTH.isSubscribed() is async and
+  // hits the network, so it's only re-evaluated on auth state changes.
+  let currentUser = null;
+  let currentSession = null;
+  let isSubscribed = false;
+  let serverSeenSet = new Set(); // populated once per session, when subscribed (see startBtn)
 
   function show(el) { el.classList.remove("hidden"); }
   function hide(el) { el.classList.add("hidden"); }
+
+  // ---------- Account / Auth ----------
+  function renderAccountSlot() {
+    accountSlot.innerHTML = "";
+    if (!currentUser) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "account-tab account-tab-login";
+      btn.textContent = "Log in";
+      btn.addEventListener("click", openAuthModal);
+      accountSlot.appendChild(btn);
+      return;
+    }
+
+    const label = document.createElement("span");
+    label.className = "account-email";
+    label.textContent = currentUser.email;
+    accountSlot.appendChild(label);
+
+    if (isSubscribed) {
+      const progressTab = document.createElement("button");
+      progressTab.type = "button";
+      progressTab.className = "account-tab account-tab-progress";
+      const isOnProgressScreen = !progressScreen.classList.contains("hidden");
+      if (isOnProgressScreen) progressTab.classList.add("active");
+      progressTab.textContent = "📊 Progress";
+      progressTab.addEventListener("click", openProgressScreen);
+      accountSlot.appendChild(progressTab);
+    }
+
+    const logoutBtn = document.createElement("button");
+    logoutBtn.type = "button";
+    logoutBtn.className = "account-tab account-tab-logout";
+    logoutBtn.textContent = "Log out";
+    logoutBtn.addEventListener("click", () => AUTH.signOut());
+    accountSlot.appendChild(logoutBtn);
+  }
+
+  function openAuthModal() {
+    authError.textContent = "";
+    hide(authError);
+    if (AUTH.isInviteOrRecoveryFlow()) {
+      hide(loginForm);
+      show(setPasswordForm);
+    } else {
+      show(loginForm);
+      hide(setPasswordForm);
+    }
+    show(authModal);
+  }
+  function closeAuthModal() {
+    hide(authModal);
+  }
+  authModalClose.addEventListener("click", closeAuthModal);
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    authError.textContent = "";
+    hide(authError);
+    const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+    loginSubmitBtn.disabled = true;
+    try {
+      await AUTH.signIn(loginEmail.value, loginPassword.value);
+      loginForm.reset();
+      closeAuthModal();
+    } catch (e) {
+      authError.textContent = e.message || "Login failed. Check your email and password.";
+      show(authError);
+    } finally {
+      loginSubmitBtn.disabled = false;
+    }
+  });
+
+  setPasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    authError.textContent = "";
+    hide(authError);
+    if (newPassword.value !== confirmPassword.value) {
+      authError.textContent = "Passwords don't match.";
+      show(authError);
+      return;
+    }
+    const setPasswordSubmitBtn = document.getElementById("setPasswordSubmitBtn");
+    setPasswordSubmitBtn.disabled = true;
+    try {
+      await AUTH.setPassword(newPassword.value);
+      setPasswordForm.reset();
+      closeAuthModal();
+    } catch (e) {
+      authError.textContent = e.message || "Couldn't set password. Try again.";
+      show(authError);
+    } finally {
+      setPasswordSubmitBtn.disabled = false;
+    }
+  });
+
+  // On page load, if this is an invite/recovery link, surface the
+  // set-password form immediately instead of waiting for a "Log in" click.
+  if (window.AUTH && AUTH.isInviteOrRecoveryFlow()) {
+    openAuthModal();
+  }
+
+  if (window.AUTH) {
+    AUTH.onAuthChange(async (user, session) => {
+      currentUser = user;
+      currentSession = session;
+      isSubscribed = false;
+      renderAccountSlot();
+      if (user) {
+        try {
+          isSubscribed = await AUTH.isSubscribed();
+        } catch (e) {
+          isSubscribed = false;
+        }
+        renderAccountSlot();
+      }
+    });
+  }
+
+  function openProgressScreen() {
+    hide(setupScreen);
+    hide(quizScreen);
+    hide(resultsScreen);
+    show(progressScreen);
+    loadProgressScreen();
+    renderAccountSlot(); // re-render so the Progress tab shows as active
+  }
+
+  progressBackBtn.addEventListener("click", () => {
+    hide(progressScreen);
+    show(setupScreen);
+    renderAccountSlot(); // clear the Progress tab's active state
+  });
 
   // ---------- Setup screen ----------
   startBtn.addEventListener("click", async () => {
@@ -119,9 +287,25 @@
     settings.count = parseInt(questionCountSelect.value, 10);
     settings.timed = document.querySelector('input[name="timedMode"]:checked').value === "timed";
 
+    // Subscribed accounts also dedup against server-side history: fetch it
+    // once here (a single query) rather than per-question in the generation loop.
+    serverSeenSet = new Set();
+    if (isSubscribed && currentUser) {
+      try {
+        const { data } = await AUTH.getClient()
+          .from("question_attempts")
+          .select("signature")
+          .eq("user_id", currentUser.id);
+        if (data) data.forEach((row) => serverSeenSet.add(row.signature));
+      } catch (e) {
+        // Best-effort: fall back to localStorage-only dedup if this query fails.
+      }
+    }
+
     sessionQuestions = Array.from({ length: settings.count }, () => generateUniqueQuestion(settings.category));
     currentIndex = 0;
     results = [];
+    sessionStartedAt = new Date().toISOString();
 
     try {
       await document.documentElement.requestFullscreen();
@@ -312,6 +496,21 @@
     submitBtn.disabled = false;
     submitBtn.textContent = currentIndex === sessionQuestions.length - 1 ? "See Results" : "Next Question";
     submitBtn.onclick = advance;
+
+    // Fire-and-forget: record this attempt server-side for subscribed accounts.
+    // Never awaited, never allowed to throw into the UI flow — mirrors
+    // TUTOR.warmup()'s fire-and-forget pattern.
+    if (isSubscribed && currentUser && AUTH.getClient()) {
+      AUTH.getClient()
+        .rpc("upsert_question_attempt", {
+          p_signature: q.signature,
+          p_category: q.category,
+          p_subcategory: q.subcategory || null,
+          p_correct: correct,
+        })
+        .then(() => {})
+        .catch(() => {});
+    }
   }
 
   function lockControls() {
@@ -422,6 +621,37 @@
 
     renderCategoryBreakdown();
     renderReviewList();
+
+    // Fire-and-forget: save a session summary row for subscribed accounts.
+    // Never awaited, never allowed to throw into the UI flow.
+    if (isSubscribed && currentUser && AUTH.getClient()) {
+      const byCategory = {};
+      results.forEach((r) => {
+        const cat = r.question.category;
+        if (!byCategory[cat]) byCategory[cat] = { correct: 0, total: 0 };
+        byCategory[cat].total++;
+        if (r.correct) byCategory[cat].correct++;
+      });
+      const categoryBreakdown = Object.entries(byCategory).map(([category, s]) => ({
+        category, correct: s.correct, total: s.total,
+      }));
+      AUTH.getClient()
+        .from("sessions")
+        .insert({
+          user_id: currentUser.id,
+          category_filter: settings.category,
+          question_count: settings.count,
+          timed: settings.timed,
+          correct_count: correctCount,
+          total_count: total,
+          flagged_count: flaggedCount,
+          category_breakdown: categoryBreakdown,
+          started_at: sessionStartedAt,
+          finished_at: new Date().toISOString(),
+        })
+        .then(() => {})
+        .catch(() => {});
+    }
   }
 
   // ---------- AI Tutor ----------
@@ -468,13 +698,208 @@
     };
   }
 
+  // ---------- Progress screen (Insights) ----------
+  // Queries sessions/question_attempts directly via the Supabase client — RLS
+  // already scopes results to the current user, so this doesn't need to route
+  // through the Worker. Builds a richer context (accuracy trend + per-category/
+  // subcategory strength/weakness) for a /tutor mode:"summary" "path to 800" call.
+  let lastProgressData = null; // cached for the pathTo800Btn handler
+
+  async function buildHistoricalSummaryContext() {
+    const [{ data: sessions }, { data: attempts }] = await Promise.all([
+      AUTH.getClient()
+        .from("sessions")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("finished_at", { ascending: true }),
+      AUTH.getClient()
+        .from("question_attempts")
+        .select("category, subcategory, last_correct")
+        .eq("user_id", currentUser.id),
+    ]);
+
+    const accuracyTrend = (sessions || []).map((s) => ({
+      finishedAt: s.finished_at,
+      correct: s.correct_count,
+      total: s.total_count,
+    }));
+
+    const bySubcategory = {};
+    (attempts || []).forEach((a) => {
+      const key = `${a.category}${a.subcategory ? " · " + a.subcategory : ""}`;
+      if (!bySubcategory[key]) bySubcategory[key] = { category: a.category, subcategory: a.subcategory, correct: 0, total: 0 };
+      bySubcategory[key].total++;
+      if (a.last_correct) bySubcategory[key].correct++;
+    });
+    const categoryBreakdown = Object.values(bySubcategory);
+
+    return {
+      sessions: sessions || [],
+      attempts: attempts || [],
+      accuracyTrend,
+      categoryBreakdown,
+    };
+  }
+
+  async function loadProgressScreen() {
+    hide(progressContent);
+    hide(progressEmptyState);
+    accuracyTrendEl.innerHTML = `<div class="tutor-loading">Loading your history...</div>`;
+    show(progressContent);
+
+    if (!currentUser || !AUTH.getClient()) {
+      hide(progressContent);
+      show(progressEmptyState);
+      return;
+    }
+
+    let data;
+    try {
+      data = await buildHistoricalSummaryContext();
+    } catch (e) {
+      hide(progressContent);
+      progressEmptyState.textContent = "Couldn't load your history right now. Try again shortly.";
+      show(progressEmptyState);
+      return;
+    }
+    lastProgressData = data;
+
+    if (data.sessions.length === 0) {
+      hide(progressContent);
+      progressEmptyState.textContent = "No practice sessions saved to your account yet. Complete a session while logged in and it'll show up here.";
+      show(progressEmptyState);
+      return;
+    }
+
+    hide(progressEmptyState);
+    show(progressContent);
+    renderProgressStats(data.sessions);
+    renderSessionHistory(data.sessions);
+    renderProgressCategoryBreakdown(data.categoryBreakdown);
+
+    hide(pathTo800Content);
+    pathTo800Content.innerHTML = "";
+    pathTo800Btn.disabled = false;
+    pathTo800Btn.textContent = "🤖 Generate My Path to 800";
+  }
+
+  // Whole-account rollup shown above the session-by-session list: total
+  // sessions completed and lifetime accuracy across all of them.
+  function renderProgressStats(sessions) {
+    const sessionCount = sessions.length;
+    const totalCorrect = sessions.reduce((sum, s) => sum + (s.correct_count || 0), 0);
+    const totalQuestions = sessions.reduce((sum, s) => sum + (s.total_count || 0), 0);
+    const pct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    progressStatsEl.innerHTML = `
+      <div class="progress-stat"><span class="progress-stat-num">${sessionCount}</span> session${sessionCount === 1 ? "" : "s"} completed</div>
+      <div class="progress-stat"><span class="progress-stat-num">${totalCorrect} / ${totalQuestions}</span> correct overall (${pct}%)</div>
+    `;
+  }
+
+  // One row per completed session, most recent first: date, timed/untimed,
+  // category filter, score, and any lockdown-flagged questions — everything
+  // needed to answer "how did that session go" without re-deriving it from
+  // question_attempts.
+  function renderSessionHistory(sessions) {
+    if (sessions.length === 0) {
+      accuracyTrendEl.innerHTML = `<div class="progress-empty">No sessions yet.</div>`;
+      return;
+    }
+    const mostRecentFirst = [...sessions].sort(
+      (a, b) => new Date(b.finished_at) - new Date(a.finished_at)
+    );
+    accuracyTrendEl.innerHTML = mostRecentFirst
+      .map((s) => {
+        const correct = s.correct_count || 0;
+        const total = s.total_count || 0;
+        const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+        const date = s.finished_at
+          ? new Date(s.finished_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+          : "—";
+        const timedLabel = s.timed ? "Timed" : "Untimed";
+        const category = s.category_filter && s.category_filter !== "MIX" ? s.category_filter : "Mixed";
+        const flagged = s.flagged_count
+          ? `<span class="session-flag">${s.flagged_count} flagged</span>`
+          : "";
+        return `
+          <div class="cat-row">
+            <div class="cat-row-head">
+              <span>${escapeHtml(date)} · <span class="session-pill">${escapeHtml(timedLabel)}</span> · ${escapeHtml(category)}</span>
+              <span>${correct} / ${total} (${pct}%) ${flagged}</span>
+            </div>
+            <div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function renderProgressCategoryBreakdown(breakdown) {
+    if (breakdown.length === 0) {
+      progressCategoryBreakdownEl.innerHTML = `<div class="progress-empty">No question history yet.</div>`;
+      return;
+    }
+    progressCategoryBreakdownEl.innerHTML = breakdown
+      .map((s) => {
+        const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+        const label = s.subcategory ? `${s.category} · ${s.subcategory}` : s.category;
+        return `
+          <div class="cat-row">
+            <div class="cat-row-head">
+              <span>${escapeHtml(label)}</span>
+              <span>${s.correct} / ${s.total} (${pct}%)</span>
+            </div>
+            <div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  pathTo800Btn.addEventListener("click", async () => {
+    if (!isSubscribed) {
+      show(pathTo800Content);
+      pathTo800Content.innerHTML = lockedTutorHtml();
+      return;
+    }
+    if (!lastProgressData) return;
+    pathTo800Btn.disabled = true;
+    pathTo800Btn.textContent = "Thinking...";
+    show(pathTo800Content);
+    pathTo800Content.innerHTML = `<div class="tutor-loading">Analyzing your history...</div>`;
+    try {
+      const reply = await TUTOR.ask("summary", lastProgressData, [], (attempt) => {
+        pathTo800Content.innerHTML = `<div class="tutor-loading">${escapeHtml(warmupMessage(attempt))}</div>`;
+      });
+      pathTo800Content.innerHTML = TUTOR.renderLite(reply);
+    } catch (e) {
+      pathTo800Content.innerHTML = `<div class="tutor-error">${escapeHtml(e.message)}</div>`;
+    } finally {
+      pathTo800Btn.disabled = false;
+      pathTo800Btn.textContent = "🤖 Generate My Path to 800";
+    }
+  });
+
   function warmupMessage(attempt) {
     return attempt === 1
       ? "Waking up the AI model — first request can take up to a minute..."
       : `Still warming up (attempt ${attempt})...`;
   }
 
+  // The Worker rejects explain/chat/summary requests from unauthenticated or
+  // unsubscribed callers anyway — check the cached subscription status here so
+  // the UI never fires a request that's guaranteed to bounce.
+  const LOCKED_MESSAGE = "Ask the site admin for access to the AI Tutor.";
+  function lockedTutorHtml() {
+    return `<div class="tutor-locked">${escapeHtml(LOCKED_MESSAGE)}</div>`;
+  }
+
   studyPlanBtn.addEventListener("click", async () => {
+    if (!isSubscribed) {
+      show(studyPlanContent);
+      studyPlanContent.innerHTML = lockedTutorHtml();
+      return;
+    }
     studyPlanBtn.disabled = true;
     studyPlanBtn.textContent = "Thinking...";
     show(studyPlanContent);
@@ -506,6 +931,11 @@
   }
 
   async function fetchExplain(idx) {
+    if (!isSubscribed) {
+      const messagesEl = reviewListEl.querySelector(`[data-messages-idx="${idx}"]`);
+      if (messagesEl) messagesEl.innerHTML = lockedTutorHtml();
+      return;
+    }
     const r = results[idx];
     r.tutorLoading = true;
     r.tutorLoadingText = "Thinking...";
@@ -526,6 +956,11 @@
   }
 
   async function sendFollowUp(idx) {
+    if (!isSubscribed) {
+      const messagesEl = reviewListEl.querySelector(`[data-messages-idx="${idx}"]`);
+      if (messagesEl) messagesEl.innerHTML = lockedTutorHtml();
+      return;
+    }
     const inputEl = reviewListEl.querySelector(`[data-input-idx="${idx}"]`);
     if (!inputEl) return;
     const text = inputEl.value.trim();
