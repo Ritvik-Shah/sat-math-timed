@@ -133,6 +133,7 @@
 
     <div class="study-plan-block">
       <button id="studyPlanBtn" class="btn-secondary">🤖 Get My AI Study Plan</button>
+      <button id="downloadStudyPlanBtn" class="btn-secondary download-pdf-btn hidden">⬇️ Download as PDF</button>
       <div id="studyPlanContent" class="tutor-response hidden"></div>
     </div>
 
@@ -165,6 +166,7 @@
       <h3 class="section-heading">Path to 800</h3>
       <div class="study-plan-block">
         <button id="pathTo800Btn" class="btn-secondary">🤖 Generate My Path to 800</button>
+        <button id="downloadPathTo800Btn" class="btn-secondary download-pdf-btn hidden">⬇️ Download as PDF</button>
         <div id="pathTo800Content" class="tutor-response hidden"></div>
       </div>
     </div>
@@ -210,6 +212,11 @@
       </form>
     </div>
   </div>
+
+  <!-- Populated just before window.print() with a clone of whichever study
+       plan is being downloaded; invisible on screen, the only thing visible
+       when @media print kicks in (see style.css). -->
+  <div id="printArea" class="print-only"></div>
 
 </main>
 

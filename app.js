@@ -29,7 +29,9 @@
   const accuracyTrendEl = document.getElementById("accuracyTrend");
   const progressCategoryBreakdownEl = document.getElementById("progressCategoryBreakdown");
   const pathTo800Btn = document.getElementById("pathTo800Btn");
+  const downloadPathTo800Btn = document.getElementById("downloadPathTo800Btn");
   const pathTo800Content = document.getElementById("pathTo800Content");
+  const printAreaEl = document.getElementById("printArea");
   const progressBackBtn = document.getElementById("progressBackBtn");
 
   const categorySelect = document.getElementById("categorySelect");
@@ -57,6 +59,7 @@
   const scoreSummaryEl = document.getElementById("scoreSummary");
   const violationsSummaryEl = document.getElementById("violationsSummary");
   const studyPlanBtn = document.getElementById("studyPlanBtn");
+  const downloadStudyPlanBtn = document.getElementById("downloadStudyPlanBtn");
   const studyPlanContent = document.getElementById("studyPlanContent");
   const categoryBreakdownEl = document.getElementById("categoryBreakdown");
   const reviewListEl = document.getElementById("reviewList");
@@ -616,6 +619,7 @@
 
     hide(studyPlanContent);
     studyPlanContent.innerHTML = "";
+    hide(downloadStudyPlanBtn);
     studyPlanBtn.disabled = false;
     studyPlanBtn.textContent = "🤖 Get My AI Study Plan";
 
@@ -779,6 +783,7 @@
 
     hide(pathTo800Content);
     pathTo800Content.innerHTML = "";
+    hide(downloadPathTo800Btn);
     pathTo800Btn.disabled = false;
     pathTo800Btn.textContent = "🤖 Generate My Path to 800";
   }
@@ -857,6 +862,7 @@
   }
 
   pathTo800Btn.addEventListener("click", async () => {
+    hide(downloadPathTo800Btn);
     if (!isSubscribed) {
       show(pathTo800Content);
       pathTo800Content.innerHTML = lockedTutorHtml();
@@ -872,12 +878,17 @@
         pathTo800Content.innerHTML = `<div class="tutor-loading">${escapeHtml(warmupMessage(attempt))}</div>`;
       });
       pathTo800Content.innerHTML = TUTOR.renderLite(reply);
+      show(downloadPathTo800Btn);
     } catch (e) {
       pathTo800Content.innerHTML = `<div class="tutor-error">${escapeHtml(e.message)}</div>`;
     } finally {
       pathTo800Btn.disabled = false;
       pathTo800Btn.textContent = "🤖 Generate My Path to 800";
     }
+  });
+
+  downloadPathTo800Btn.addEventListener("click", () => {
+    printTutorContent("My Path to 800", pathTo800Content);
   });
 
   function warmupMessage(attempt) {
@@ -894,7 +905,24 @@
     return `<div class="tutor-locked">${escapeHtml(LOCKED_MESSAGE)}</div>`;
   }
 
+  // Prints a study plan as a standalone document via the browser's native
+  // print dialog ("Save as PDF" is a built-in destination on every modern
+  // browser) — no PDF-generation library needed, matching this repo's
+  // no-build-step, nothing-external posture. Clones the already-rendered
+  // HTML (safe: TUTOR.renderLite already escaped/sanitized it) into a
+  // dedicated print-only container that @media print reveals exclusively.
+  function printTutorContent(title, contentEl) {
+    const today = new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+    printAreaEl.innerHTML = `
+      <h1>${escapeHtml(title)}</h1>
+      <div class="print-meta">SAT Math Practice · Generated ${escapeHtml(today)}</div>
+      ${contentEl.innerHTML}
+    `;
+    window.print();
+  }
+
   studyPlanBtn.addEventListener("click", async () => {
+    hide(downloadStudyPlanBtn);
     if (!isSubscribed) {
       show(studyPlanContent);
       studyPlanContent.innerHTML = lockedTutorHtml();
@@ -909,12 +937,17 @@
         studyPlanContent.innerHTML = `<div class="tutor-loading">${escapeHtml(warmupMessage(attempt))}</div>`;
       });
       studyPlanContent.innerHTML = TUTOR.renderLite(reply);
+      show(downloadStudyPlanBtn);
     } catch (e) {
       studyPlanContent.innerHTML = `<div class="tutor-error">${escapeHtml(e.message)}</div>`;
     } finally {
       studyPlanBtn.disabled = false;
       studyPlanBtn.textContent = "🤖 Get My AI Study Plan";
     }
+  });
+
+  downloadStudyPlanBtn.addEventListener("click", () => {
+    printTutorContent("My SAT Math Study Plan", studyPlanContent);
   });
 
   function renderTutorMessages(idx) {

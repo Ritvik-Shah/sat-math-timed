@@ -327,13 +327,24 @@ h1 {
 }
 .tutor-response p { margin: 0 0 10px; }
 .tutor-response p:last-child { margin-bottom: 0; }
-.tutor-response ul { margin: 0 0 10px; padding-left: 20px; }
+.tutor-response ul,
+.tutor-response ol { margin: 0 0 10px; padding-left: 20px; }
+.tutor-response li { margin-bottom: 4px; }
 .tutor-response code {
   background: var(--bg);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 12px;
 }
+.tutor-response em { color: var(--text-dim); font-style: italic; }
+
+.tutor-heading {
+  margin: 18px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.tutor-heading:first-child { margin-top: 0; }
 
 .tutor-response sup,
 .tutor-bubble sup {
@@ -369,7 +380,9 @@ h1 {
 }
 .tutor-bubble p { margin: 0 0 8px; }
 .tutor-bubble p:last-child { margin-bottom: 0; }
-.tutor-bubble ul { margin: 0 0 8px; padding-left: 18px; }
+.tutor-bubble ul,
+.tutor-bubble ol { margin: 0 0 8px; padding-left: 18px; }
+.tutor-bubble .tutor-heading { font-size: 13px; margin: 8px 0 4px; }
 .tutor-bubble.assistant {
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -905,3 +918,62 @@ h1 {
 }
 
 .hidden { display: none !important; }
+
+/* ---------- Download-as-PDF (study plan) ---------- */
+.download-pdf-btn { margin-left: 8px; }
+
+.print-only { display: none; }
+
+@media print {
+  /* Hide the whole app and reveal only #printArea, populated just before
+     window.print() is called (see app.js's printTutorContent()). Using
+     visibility rather than display so layout doesn't reflow mid-print. */
+  body * { visibility: hidden; }
+  #printArea, #printArea * { visibility: visible; }
+  #printArea {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+  }
+
+  /* Printed output should look like a real document, not a dark-mode
+     screenshot — override the site's dark palette to plain black-on-white
+     for everything inside the print area specifically. */
+  #printArea h1 {
+    font-size: 22px;
+    margin: 0 0 2px;
+    color: #0f172a;
+  }
+  #printArea .print-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0 0 20px;
+  }
+  #printArea .tutor-heading {
+    color: #0f766e;
+    font-size: 16px;
+    margin: 18px 0 6px;
+  }
+  #printArea .tutor-heading:first-child { margin-top: 0; }
+  #printArea p,
+  #printArea li {
+    color: #1e293b;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #printArea strong { color: #0f172a; }
+  #printArea em { color: #475569; font-style: italic; }
+  #printArea code {
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+  }
+  #printArea ul,
+  #printArea ol { padding-left: 20px; margin: 0 0 10px; }
+  #printArea li { margin-bottom: 4px; }
+}

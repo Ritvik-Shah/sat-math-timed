@@ -64,37 +64,52 @@
     }
   }
 
-  // Minimal, safe renderer for the LLM's reply: escapes HTML first, then
-  // supports **bold**, `code`, "- " bullet lists, paragraph breaks, and
-  // lightweight math formatting (see prettifyMath).
+  // Safe Markdown-ish renderer for the LLM's reply: escapes HTML first, then
+  // supports headers (# through ######), **bold**, *italic*, `code`,
+  // "- "/"* " bullet lists, "1. " numbered lists, paragraph breaks, and
+  // lightweight math formatting (see prettifyMath). The worker's system
+  // prompt asks the model to write in exactly this subset, but degrades
+  // gracefully (strips stray horizontal rules / code fences it doesn't
+  // support) if a smaller model doesn't fully comply.
   function renderLite(text) {
     const esc = escapeHtml(text);
-    // Defense in depth: the system prompt tells the model to stick to plain
-    // prose/bullets/bold, but strip stray markdown this renderer doesn't
-    // understand anyway, so it degrades to readable text instead of showing
-    // raw "##"/"```"/"---" syntax if the model doesn't fully comply.
     const stripped = esc
-      .replace(/^#{1,6}[ \t]*/gm, "")
       .replace(/^-{3,}[ \t]*$/gm, "")
       .replace(/```[a-zA-Z]*\n?/g, "")
       .replace(/```/g, "");
     const mathified = prettifyMath(stripped);
+    // Bold before italic so **x** doesn't get half-eaten by the single-*
+    // italic pass; italic then only matches asterisks bold already skipped.
     const withBold = mathified.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    const withCode = withBold.replace(/`([^`]+)`/g, "<code>$1</code>");
+    const withItalic = withBold.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    const withCode = withItalic.replace(/`([^`]+)`/g, "<code>$1</code>");
+
     const lines = withCode.split("\n");
     let html = "";
-    let inList = false;
+    let listType = null; // "ul" | "ol" | null
+    function closeList() {
+      if (listType) { html += `</${listType}>`; listType = null; }
+    }
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (/^[-*]\s+/.test(line)) {
-        if (!inList) { html += "<ul>"; inList = true; }
-        html += `<li>${line.replace(/^[-*]\s+/, "")}</li>`;
+      const heading = line.match(/^(#{1,6})\s+(.*)/);
+      const ordered = line.match(/^\d+[.)]\s+(.*)/);
+      const unordered = line.match(/^[-*]\s+(.*)/);
+      if (heading) {
+        closeList();
+        html += `<h4 class="tutor-heading">${heading[2]}</h4>`;
+      } else if (ordered) {
+        if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
+        html += `<li>${ordered[1]}</li>`;
+      } else if (unordered) {
+        if (listType !== "ul") { closeList(); html += "<ul>"; listType = "ul"; }
+        html += `<li>${unordered[1]}</li>`;
       } else {
-        if (inList) { html += "</ul>"; inList = false; }
+        closeList();
         if (line) html += `<p>${line}</p>`;
       }
     }
-    if (inList) html += "</ul>";
+    closeList();
     return html || `<p>${mathified}</p>`;
   }
 

@@ -368,7 +368,7 @@ function json(obj, status, extraHeaders) {
 function buildSystemPrompt(mode, context) {
   const base =
     "You are a patient, encouraging SAT Math tutor. Keep answers concise (under 200 words unless the student explicitly asks for more detail), use plain language, and reason step by step when explaining math. Never just restate the final answer without explaining the reasoning. Only discuss SAT-level math — politely decline anything else." +
-    " Formatting rules — the student's screen only renders plain prose paragraphs, \"- \" bullet points, and **bold** text; nothing else gets rendered, so avoid it entirely: no markdown headers (##), no horizontal rules (---), no code blocks or backticks, no tables, no LaTeX (\\( \\), \\[ \\], $ $, \\frac, \\sqrt) . For math specifically, write exponents as x^2, square roots as sqrt(16), fractions as a/b, multiplication as 2 * 3, and inequalities as <= >= !=. Put standalone equations on their own line rather than burying them mid-sentence, but as plain text within a normal paragraph — not inside a code block.";
+    " Formatting rules — the student's screen renders a specific Markdown subset: \"### \" headers, \"- \" bullet points, \"1. \" numbered lists, **bold**, and *italic*; nothing else gets rendered, so avoid it entirely: no horizontal rules (---), no code blocks or backticks, no tables, no nested/multi-level lists, no LaTeX (\\( \\), \\[ \\], $ $, \\frac, \\sqrt). For math specifically, write exponents as x^2, square roots as sqrt(16), fractions as a/b, multiplication as 2 * 3, and inequalities as <= >= !=. Put standalone equations on their own line rather than burying them mid-sentence, but as plain text within a normal paragraph — not inside a code block.";
 
   if (mode === "explain") {
     const c = context;
@@ -404,7 +404,9 @@ Score by category: ${breakdown || "n/a"}
 Questions they missed:
 ${missed || "(none missed)"}
 
-Based on the specific pattern of what they missed (not generic SAT advice), identify the 2-3 most important fundamental skills or concepts for this student to focus on next, in priority order, and give one concrete, actionable way to practice each.`;
+Based on the specific pattern of what they missed (not generic SAT advice), identify the 2-3 most important fundamental skills or concepts for this student to focus on next, in priority order, and give one concrete, actionable way to practice each.
+
+Structure the whole reply as a clean study-plan document, since the student can download it as a PDF: a "### " header per skill in the form "### 1. Skill name" (number them in priority order), then within each section a **Why it matters:** label followed by one sentence, and a **Actionable practice:** label followed by one concrete drill. Close with one short paragraph tying the plan together — no header on that closing paragraph.`;
   }
 
   // chat mode
