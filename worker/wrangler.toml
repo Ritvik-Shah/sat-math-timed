@@ -1,6 +1,7 @@
 name = "sat-math-tutor"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
+# (CI auto-deploy test — see .github/workflows/deploy-worker.yml)
 
 [vars]
 # Ollama Cloud model to use. "-cloud" suffix runs on Ollama's hosted infrastructure
